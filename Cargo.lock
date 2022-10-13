@@ -1331,6 +1331,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "etherparse",
+ "futures",
  "influxdb2",
  "pcap",
  "tokio",
