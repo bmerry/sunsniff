@@ -31,6 +31,10 @@ struct Args {
     /// Treat --device as a file rather than a device
     #[clap(long)]
     file: bool,
+
+    /// Filter expression for pcap
+    #[clap(long)]
+    filter: Option<String>,
 }
 
 struct Field {
@@ -46,20 +50,26 @@ impl Field {
     }
 }
 
+const MAGIC_LENGTH: usize = 292;
 const FIELDS: &'static [Field] = &[
     Field::new(228, "Load", 1.0, "W"),
     Field::new(244, "SoC", 1.0, "%"),
 ];
 
 async fn run<T: pcap::Activated>(cap: &mut Capture<T>, client: &Client, args: &Args) -> Result<(), Box<dyn std::error::Error>> {
-    cap.filter("tcp", true)?;
+    let base_filter = "tcp";
+    let filter = match &args.filter {
+        Some(expr) => format!("({}) and ({})", base_filter, expr),
+        None => String::from(base_filter),
+    };
+    cap.filter(filter.as_str(), true)?;
     cap.set_datalink(pcap::Linktype::ETHERNET)?;
 
     loop {
         match cap.next_packet() {
             Ok(packet) => {
                 let sliced = SlicedPacket::from_ethernet(packet.data)?;
-                if sliced.payload.len() == 292 {
+                if sliced.payload.len() == MAGIC_LENGTH {
                     let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64 + (packet.header.ts.tv_usec as i64) * 1000i64;
                     let mut points = vec![];
                     for field in FIELDS.iter() {
