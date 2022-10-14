@@ -1,31 +1,31 @@
 use clap::Parser;
 use etherparse::SlicedPacket;
 use futures::stream;
-use influxdb2::Client;
 use influxdb2::models::DataPoint;
+use influxdb2::Client;
 use pcap::{Capture, Device};
 
 #[derive(Debug, Parser)]
 #[clap(author, version)]
 struct Args {
     /// Host for influxdb
-    #[clap(long, default_value="http://localhost:8086")]
+    #[clap(long, default_value = "http://localhost:8086")]
     host: String,
 
     /// Organisation for influxdb
-    #[clap(long, required=true)]
+    #[clap(long, required = true)]
     org: String,
 
     /// Token for influxdb
-    #[clap(long, required=true)]
+    #[clap(long, required = true)]
     token: String,
 
     /// Bucket for influxdb
-    #[clap(long, required=true)]
+    #[clap(long, required = true)]
     bucket: String,
 
     /// Capture device
-    #[clap(long, required=true)]
+    #[clap(long, required = true)]
     device: String,
 
     /// Treat --device as a file rather than a device
@@ -46,7 +46,12 @@ struct Field {
 
 impl Field {
     const fn new(offset: usize, name: &'static str, scale: f64, unit: &'static str) -> Field {
-        return Field { offset, name, scale, unit };
+        return Field {
+            offset,
+            name,
+            scale,
+            unit,
+        };
     }
 }
 
@@ -56,7 +61,11 @@ const FIELDS: &'static [Field] = &[
     Field::new(244, "SoC", 1.0, "%"),
 ];
 
-async fn run<T: pcap::Activated>(cap: &mut Capture<T>, client: &Client, args: &Args) -> Result<(), Box<dyn std::error::Error>> {
+async fn run<T: pcap::Activated>(
+    cap: &mut Capture<T>,
+    client: &Client,
+    args: &Args,
+) -> Result<(), Box<dyn std::error::Error>> {
     let base_filter = "tcp";
     let filter = match &args.filter {
         Some(expr) => format!("({}) and ({})", base_filter, expr),
@@ -70,7 +79,8 @@ async fn run<T: pcap::Activated>(cap: &mut Capture<T>, client: &Client, args: &A
             Ok(packet) => {
                 let sliced = SlicedPacket::from_ethernet(packet.data)?;
                 if sliced.payload.len() == MAGIC_LENGTH {
-                    let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64 + (packet.header.ts.tv_usec as i64) * 1000i64;
+                    let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64
+                        + (packet.header.ts.tv_usec as i64) * 1000i64;
                     let mut points = vec![];
                     for field in FIELDS.iter() {
                         let bytes = &sliced.payload[field.offset..field.offset + 2];
@@ -84,14 +94,14 @@ async fn run<T: pcap::Activated>(cap: &mut Capture<T>, client: &Client, args: &A
                                 .tag("name", field.name)
                                 .tag("unit", field.unit)
                                 .field("value", value)
-                                .build()?
+                                .build()?,
                         );
                     }
                     client.write(&args.bucket, stream::iter(points)).await?;
                 }
-            },
-            Err(pcap::Error::TimeoutExpired) => {},
-            Err(err) => { Err(err)? },
+            }
+            Err(pcap::Error::TimeoutExpired) => {}
+            Err(err) => Err(err)?,
         }
     }
 }
