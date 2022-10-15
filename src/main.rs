@@ -39,26 +39,65 @@ struct Args {
 
 struct Field {
     offset: usize,
+    group: &'static str,
     name: &'static str,
     scale: f64,
+    bias: f64,
     unit: &'static str,
 }
 
 impl Field {
-    const fn new(offset: usize, name: &'static str, scale: f64, unit: &'static str) -> Field {
+    const fn new(
+        offset: usize,
+        group: &'static str,
+        name: &'static str,
+        scale: f64,
+        bias: f64,
+        unit: &'static str,
+    ) -> Field {
         return Field {
             offset,
+            group,
             name,
             scale,
+            bias,
             unit,
         };
+    }
+
+    const fn power(offset: usize, group: &'static str) -> Field {
+        return Field::new(offset, group, "Power", 1.0, 0.0, "W");
+    }
+
+    const fn voltage(offset: usize, group: &'static str) -> Field {
+        return Field::new(offset, group, "Voltage", 0.1, 0.0, "V");
+    }
+
+    const fn current(offset: usize, group: &'static str) -> Field {
+        return Field::new(offset, group, "Current", 0.01, 0.0, "A");
+    }
+
+    const fn temperature(offset: usize, group: &'static str) -> Field {
+        return Field::new(offset, group, "Temperature", 0.1, -100.0, "°C");
+    }
+
+    const fn frequency(offset: usize, group: &'static str) -> Field {
+        return Field::new(offset, group, "Frequency", 0.01, 0.0, "Hz");
     }
 }
 
 const MAGIC_LENGTH: usize = 292;
+const MAGIC_HEADER: u8 = 0xa5;
 const FIELDS: &'static [Field] = &[
-    Field::new(228, "Load", 1.0, "W"),
-    Field::new(244, "SoC", 1.0, "%"),
+    Field::frequency(84, "Grid"),
+    Field::voltage(176, "Grid"),
+    Field::power(216, "Grid"),
+    Field::power(228, "Load"),
+    Field::temperature(240, "Battery"),
+    Field::new(244, "Battery", "SOC", 1.0, 0.0, "%"),
+    Field::power(248, "PV"),
+    Field::power(256, "Battery"),
+    Field::current(258, "Battery"),
 ];
 
 async fn run<T: pcap::Activated>(
@@ -78,7 +117,8 @@ async fn run<T: pcap::Activated>(
         match cap.next_packet() {
             Ok(packet) => {
                 let sliced = SlicedPacket::from_ethernet(packet.data)?;
-                if sliced.payload.len() == MAGIC_LENGTH {
+                if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
+                    let serial = std::str::from_utf8(&sliced.payload[11..21]).unwrap_or("unknown");
                     let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64
                         + (packet.header.ts.tv_usec as i64) * 1000i64;
                     let mut points = vec![];
@@ -86,17 +126,23 @@ async fn run<T: pcap::Activated>(
                         let bytes = &sliced.payload[field.offset..field.offset + 2];
                         let bytes = <&[u8; 2]>::try_from(bytes)?;
                         let value = i16::from_be_bytes(*bytes);
-                        let value = (value as f64) * field.scale;
-                        println!("{}: {} {}", field.name, value, field.unit);
+                        let value = (value as f64) * field.scale + field.bias;
+                        println!(
+                            "{} {} {}: {} {}",
+                            serial, field.group, field.name, value, field.unit
+                        );
                         points.push(
-                            DataPoint::builder("power")
+                            DataPoint::builder("inverter")
                                 .timestamp(timestamp)
+                                .tag("serial", serial)
+                                .tag("group", field.group)
                                 .tag("name", field.name)
                                 .tag("unit", field.unit)
                                 .field("value", value)
                                 .build()?,
                         );
                     }
+                    println!("");
                     client.write(&args.bucket, stream::iter(points)).await?;
                 }
             }
