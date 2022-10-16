@@ -77,19 +77,37 @@ impl Field {
         return Field::new(offset, group, "Current", 0.01, 0.0, "A");
     }
 
+    const fn temperature_name(offset: usize, group: &'static str, name: &'static str) -> Field {
+        return Field::new(offset, group, name, 0.1, -100.0, "°C");
+    }
+
     const fn temperature(offset: usize, group: &'static str) -> Field {
-        return Field::new(offset, group, "Temperature", 0.1, -100.0, "°C");
+        return Field::temperature_name(offset, group, "Temperature");
     }
 
     const fn frequency(offset: usize, group: &'static str) -> Field {
         return Field::new(offset, group, "Frequency", 0.01, 0.0, "Hz");
+    }
+
+    const fn energy(offset: usize, group: &'static str, name: &'static str) -> Field {
+        // TODO: these are probably 32-bit values, but more investigation is
+        // needed to figure out where the high bits live.
+        return Field::new(offset, group, name, 0.1, 0.0, "kWh");
     }
 }
 
 const MAGIC_LENGTH: usize = 292;
 const MAGIC_HEADER: u8 = 0xa5;
 const FIELDS: &'static [Field] = &[
+    Field::energy(70, "Battery", "Total charge"),
+    Field::energy(74, "Battery", "Total discharge"),
+    Field::energy(82, "Grid", "Total import"),
+    Field::energy(88, "Grid", "Total export"),
     Field::frequency(84, "Grid"),
+    Field::energy(96, "Load", "Total consumption"),
+    Field::temperature_name(106, "Inverter", "DC Temperature"),
+    Field::temperature_name(108, "Inverter", "AC Temperature"),
+    Field::energy(118, "PV", "Total production"),
     Field::voltage(176, "Grid"),
     Field::power(216, "Grid"),
     Field::power(228, "Load"),
