@@ -5,6 +5,8 @@ use influxdb2::models::DataPoint;
 use influxdb2::Client;
 use pcap::{Capture, Device};
 
+use sunsniff::receiver::Field;
+
 #[derive(Debug, Parser)]
 #[clap(author, version)]
 struct Args {
@@ -37,68 +39,9 @@ struct Args {
     filter: Option<String>,
 }
 
-struct Field {
-    offset: usize,
-    group: &'static str,
-    name: &'static str,
-    scale: f64,
-    bias: f64,
-    unit: &'static str,
-}
-
-impl Field {
-    const fn new(
-        offset: usize,
-        group: &'static str,
-        name: &'static str,
-        scale: f64,
-        bias: f64,
-        unit: &'static str,
-    ) -> Field {
-        return Field {
-            offset,
-            group,
-            name,
-            scale,
-            bias,
-            unit,
-        };
-    }
-
-    const fn power(offset: usize, group: &'static str) -> Field {
-        return Field::new(offset, group, "Power", 1.0, 0.0, "W");
-    }
-
-    const fn voltage(offset: usize, group: &'static str) -> Field {
-        return Field::new(offset, group, "Voltage", 0.1, 0.0, "V");
-    }
-
-    const fn current(offset: usize, group: &'static str) -> Field {
-        return Field::new(offset, group, "Current", 0.01, 0.0, "A");
-    }
-
-    const fn temperature_name(offset: usize, group: &'static str, name: &'static str) -> Field {
-        return Field::new(offset, group, name, 0.1, -100.0, "°C");
-    }
-
-    const fn temperature(offset: usize, group: &'static str) -> Field {
-        return Field::temperature_name(offset, group, "Temperature");
-    }
-
-    const fn frequency(offset: usize, group: &'static str) -> Field {
-        return Field::new(offset, group, "Frequency", 0.01, 0.0, "Hz");
-    }
-
-    const fn energy(offset: usize, group: &'static str, name: &'static str) -> Field {
-        // TODO: these are probably 32-bit values, but more investigation is
-        // needed to figure out where the high bits live.
-        return Field::new(offset, group, name, 0.1, 0.0, "kWh");
-    }
-}
-
 const MAGIC_LENGTH: usize = 292;
 const MAGIC_HEADER: u8 = 0xa5;
-const FIELDS: &'static [Field] = &[
+const FIELDS: &[Field] = &[
     Field::energy(70, "Battery", "Total charge"),
     Field::energy(74, "Battery", "Total discharge"),
     Field::energy(82, "Grid", "Total import"),
