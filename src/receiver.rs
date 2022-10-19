@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use futures::channel::mpsc::UnboundedReceiver;
+use std::sync::Arc;
 
 pub struct Field<'a> {
     pub offset: usize,
@@ -19,7 +20,7 @@ pub struct Update<'a> {
 
 #[async_trait]
 pub trait Receiver {
-    async fn run<'a>(&mut self, receiver: UnboundedReceiver<Update<'a>>);
+    async fn run<'a>(&mut self, receiver: UnboundedReceiver<Arc<Update<'a>>>);
 }
 
 impl<'a> Field<'a> {
@@ -69,5 +70,21 @@ impl<'a> Field<'a> {
         // TODO: these are probably 32-bit values, but more investigation is
         // needed to figure out where the high bits live.
         return Field::new(offset, group, name, 0.1, 0.0, "kWh");
+    }
+}
+
+impl<'a> Update<'a> {
+    pub fn new(
+        timestamp: i64,
+        serial: impl Into<String>,
+        fields: &'a [Field<'a>],
+        values: Vec<f64>,
+    ) -> Update<'a> {
+        return Update {
+            timestamp,
+            serial: serial.into(),
+            fields,
+            values,
+        };
     }
 }

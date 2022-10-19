@@ -1,11 +1,14 @@
 use clap::Parser;
 use etherparse::SlicedPacket;
-use futures::stream;
-use influxdb2::models::DataPoint;
+use futures::channel::mpsc::UnboundedSender;
+use futures::join;
+use futures::stream::{FuturesUnordered, StreamExt};
 use influxdb2::Client;
-use pcap::{Capture, Device};
+use pcap::{Capture, Device, Packet, PacketCodec};
+use std::sync::Arc;
 
-use sunsniff::receiver::Field;
+use sunsniff::influxdb2::Influxdb2Receiver;
+use sunsniff::receiver::{Field, Receiver, Update};
 
 #[derive(Debug, Parser)]
 #[clap(author, version)]
@@ -61,10 +64,36 @@ const FIELDS: &[Field] = &[
     Field::current(258, "Battery"),
 ];
 
+struct Codec {}
+
+impl PacketCodec for Codec {
+    type Item = Result<Option<Arc<Update<'static>>>, Box<dyn std::error::Error>>;
+
+    fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
+        let sliced = SlicedPacket::from_ethernet(packet.data)?;
+        if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
+            let serial = std::str::from_utf8(&sliced.payload[11..21]).unwrap_or("unknown");
+            let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64
+                + (packet.header.ts.tv_usec as i64) * 1000i64;
+            let mut values = vec![];
+            for field in FIELDS.iter() {
+                let bytes = &sliced.payload[field.offset..field.offset + 2];
+                let bytes = <&[u8; 2]>::try_from(bytes)?;
+                let value = i16::from_be_bytes(*bytes);
+                let value = (value as f64) * field.scale + field.bias;
+                values.push(value);
+            }
+            let update = Update::new(timestamp, serial, FIELDS, values);
+            return Ok(Some(Arc::new(update)));
+        }
+        Ok(None)
+    }
+}
+
 async fn run<T: pcap::Activated>(
-    cap: &mut Capture<T>,
-    client: &Client,
+    mut cap: Capture<T>,
     args: &Args,
+    sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let base_filter = "tcp";
     let filter = match &args.filter {
@@ -73,44 +102,24 @@ async fn run<T: pcap::Activated>(
     };
     cap.filter(filter.as_str(), true)?;
     cap.set_datalink(pcap::Linktype::ETHERNET)?;
+    let mut stream = cap.stream(Codec {})?;
 
     loop {
-        match cap.next_packet() {
-            Ok(packet) => {
-                let sliced = SlicedPacket::from_ethernet(packet.data)?;
-                if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
-                    let serial = std::str::from_utf8(&sliced.payload[11..21]).unwrap_or("unknown");
-                    let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64
-                        + (packet.header.ts.tv_usec as i64) * 1000i64;
-                    let mut points = vec![];
-                    for field in FIELDS.iter() {
-                        let bytes = &sliced.payload[field.offset..field.offset + 2];
-                        let bytes = <&[u8; 2]>::try_from(bytes)?;
-                        let value = i16::from_be_bytes(*bytes);
-                        let value = (value as f64) * field.scale + field.bias;
-                        println!(
-                            "{} {} {}: {} {}",
-                            serial, field.group, field.name, value, field.unit
-                        );
-                        points.push(
-                            DataPoint::builder("inverter")
-                                .timestamp(timestamp)
-                                .tag("serial", serial)
-                                .tag("group", field.group)
-                                .tag("name", field.name)
-                                .tag("unit", field.unit)
-                                .field("value", value)
-                                .build()?,
-                        );
+        match stream.next().await {
+            Some(item) => {
+                match item?? {
+                    Some(update) => {
+                        for sink in sinks.iter_mut() {
+                            sink.unbounded_send(Arc::clone(&update))?;
+                        }
                     }
-                    println!("");
-                    client.write(&args.bucket, stream::iter(points)).await?;
+                    None => {}
                 }
             }
-            Err(pcap::Error::TimeoutExpired) => {}
-            Err(err) => Err(err)?,
+            None => { break; }
         }
     }
+    Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -121,13 +130,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: actually check that the server is healthy
     client.health().await?;
 
+    let receiver = Influxdb2Receiver::new(client, &args.bucket);
+    let mut receivers = vec![receiver];
+
+    let mut sinks = vec![];
+    let futures = FuturesUnordered::new();
+    for receiver in receivers.iter_mut() {
+        let (sink, stream) = futures::channel::mpsc::unbounded();
+        futures.push(receiver.run(stream));
+        sinks.push(sink);
+    }
+
     if args.file {
-        let mut cap = Capture::from_file(&args.device)?;
-        run(&mut cap, &client, &args).await?;
+        let cap = Capture::from_file(&args.device)?;
+        join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>()).0?;
     } else {
         let device = Device::from(args.device.as_str());
-        let mut cap = Capture::from_device(device)?.immediate_mode(true).open()?;
-        run(&mut cap, &client, &args).await?;
+        let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
+        join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>()).0?;
     }
     Ok(())
 }

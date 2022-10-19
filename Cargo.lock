@@ -928,10 +928,12 @@ checksum = "98d92d4bf65b3e26dbbadaf90b0ea90f7dd631459db276b3b1fc3efc3c68696a"
 dependencies = [
  "bitflags",
  "errno",
+ "futures",
  "libc",
  "libloading",
  "pkg-config",
  "regex",
+ "tokio",
  "windows-sys",
 ]
 
@@ -1444,6 +1446,7 @@ dependencies = [
  "libc",
  "memchr",
  "mio",
+ "num_cpus",
  "pin-project-lite",
  "socket2",
  "tokio-macros",
