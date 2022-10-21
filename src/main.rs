@@ -1,7 +1,8 @@
 use clap::Parser;
 use etherparse::SlicedPacket;
 use futures::channel::mpsc::UnboundedSender;
-use futures::join;
+use futures::future::FutureExt;
+use futures::try_join;
 use futures::stream::{FuturesUnordered, StreamExt};
 use influxdb2::Client;
 use pcap::{Capture, Device, Packet, PacketCodec};
@@ -141,13 +142,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sinks.push(sink);
     }
 
+    // TODO: better handling of errors from receivers
     if args.file {
         let cap = Capture::from_file(&args.device)?;
-        join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>()).0?;
+        try_join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
     } else {
         let device = Device::from(args.device.as_str());
         let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
-        join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>()).0?;
+        let cap = cap.setnonblock()?;
+        try_join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
     }
     Ok(())
 }
