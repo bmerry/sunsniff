@@ -68,26 +68,27 @@ const FIELDS: &[Field] = &[
 struct Codec {}
 
 impl PacketCodec for Codec {
-    type Item = Result<Option<Arc<Update<'static>>>, Box<dyn std::error::Error>>;
+    type Item = Option<Arc<Update<'static>>>;
 
     fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
-        let sliced = SlicedPacket::from_ethernet(packet.data)?;
-        if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
-            let serial = std::str::from_utf8(&sliced.payload[11..21]).unwrap_or("unknown");
-            let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64
-                + (packet.header.ts.tv_usec as i64) * 1000i64;
-            let mut values = vec![];
-            for field in FIELDS.iter() {
-                let bytes = &sliced.payload[field.offset..field.offset + 2];
-                let bytes = <&[u8; 2]>::try_from(bytes)?;
-                let value = i16::from_be_bytes(*bytes);
-                let value = (value as f64) * field.scale + field.bias;
-                values.push(value);
+        if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
+            if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
+                let serial = std::str::from_utf8(&sliced.payload[11..21]).unwrap_or("unknown");
+                let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64
+                    + (packet.header.ts.tv_usec as i64) * 1000i64;
+                let mut values = vec![];
+                for field in FIELDS.iter() {
+                    let bytes = &sliced.payload[field.offset..field.offset + 2];
+                    let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
+                    let value = i16::from_be_bytes(*bytes);
+                    let value = (value as f64) * field.scale + field.bias;
+                    values.push(value);
+                }
+                let update = Update::new(timestamp, serial, FIELDS, values);
+                return Some(Arc::new(update));
             }
-            let update = Update::new(timestamp, serial, FIELDS, values);
-            return Ok(Some(Arc::new(update)));
         }
-        Ok(None)
+        None
     }
 }
 
@@ -108,7 +109,7 @@ async fn run<T: pcap::Activated>(
     loop {
         match stream.next().await {
             Some(item) => {
-                match item?? {
+                match item? {
                     Some(update) => {
                         for sink in sinks.iter_mut() {
                             sink.unbounded_send(Arc::clone(&update))?;
