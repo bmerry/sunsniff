@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use futures::channel::mpsc::UnboundedReceiver;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub struct Field<'a> {
     pub offset: usize,
     pub group: &'a str,
@@ -11,6 +12,7 @@ pub struct Field<'a> {
     pub unit: &'a str,
 }
 
+#[derive(Debug)]
 pub struct Update<'a> {
     pub timestamp: i64, // Nanoseconds since UNIX epoch
     pub serial: String,

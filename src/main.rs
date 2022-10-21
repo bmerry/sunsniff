@@ -1,9 +1,9 @@
 use clap::Parser;
 use etherparse::SlicedPacket;
 use futures::channel::mpsc::UnboundedSender;
-use futures::future::FutureExt;
+use futures::prelude::*;
 use futures::try_join;
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::stream::{FuturesUnordered};
 use influxdb2::Client;
 use pcap::{Capture, Device, Packet, PacketCodec};
 use std::sync::Arc;
@@ -92,20 +92,10 @@ impl PacketCodec for Codec {
     }
 }
 
-async fn run<T: pcap::Activated>(
-    mut cap: Capture<T>,
-    args: &Args,
+async fn run<S: Stream<Item = Result<<Codec as PacketCodec>::Item, pcap::Error>> + Unpin>(
+    stream: &mut S,
     sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let base_filter = "tcp";
-    let filter = match &args.filter {
-        Some(expr) => format!("({}) and ({})", base_filter, expr),
-        None => String::from(base_filter),
-    };
-    cap.filter(filter.as_str(), true)?;
-    cap.set_datalink(pcap::Linktype::ETHERNET)?;
-    let mut stream = cap.stream(Codec {})?;
-
     loop {
         match stream.next().await {
             Some(item) => {
@@ -120,6 +110,9 @@ async fn run<T: pcap::Activated>(
             }
             None => { break; }
         }
+    }
+    for sink in sinks.iter_mut() {
+        sink.close().await?; // TODO: do these in parallel?
     }
     Ok(())
 }
@@ -143,15 +136,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sinks.push(sink);
     }
 
+    let base_filter = "tcp";
+    let filter = match &args.filter {
+        Some(expr) => format!("({}) and ({})", base_filter, expr),
+        None => String::from(base_filter),
+    };
+
     // TODO: better handling of errors from receivers
     if args.file {
-        let cap = Capture::from_file(&args.device)?;
-        try_join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
+        let mut cap = Capture::from_file(&args.device)?;
+        cap.filter(filter.as_str(), true)?;
+        cap.set_datalink(pcap::Linktype::ETHERNET)?;
+        /* cap.stream doesn't work on files. This is a somewhat hacky
+         * workaround: it's probably going to load all the packets into
+         * the sinks at once before giving them a chance to run.
+         */
+        let mut stream = futures::stream::iter(cap.iter(Codec {}));
+        try_join!(run(&mut stream, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
     } else {
         let device = Device::from(args.device.as_str());
         let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
-        let cap = cap.setnonblock()?;
-        try_join!(run(cap, &args, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
+        let mut cap = cap.setnonblock()?;
+        cap.filter(filter.as_str(), true)?;
+        cap.set_datalink(pcap::Linktype::ETHERNET)?;
+        let mut stream = cap.stream(Codec {})?;
+        try_join!(run(&mut stream, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
     }
     Ok(())
 }
