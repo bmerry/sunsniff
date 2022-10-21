@@ -2,8 +2,8 @@ use clap::Parser;
 use etherparse::SlicedPacket;
 use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
+use futures::stream::FuturesUnordered;
 use futures::try_join;
-use futures::stream::{FuturesUnordered};
 use influxdb2::Client;
 use pcap::{Capture, Device, Packet, PacketCodec};
 use std::sync::Arc;
@@ -98,17 +98,17 @@ async fn run<S: Stream<Item = Result<<Codec as PacketCodec>::Item, pcap::Error>>
 ) -> Result<(), Box<dyn std::error::Error>> {
     loop {
         match stream.next().await {
-            Some(item) => {
-                match item? {
-                    Some(update) => {
-                        for sink in sinks.iter_mut() {
-                            sink.unbounded_send(Arc::clone(&update))?;
-                        }
+            Some(item) => match item? {
+                Some(update) => {
+                    for sink in sinks.iter_mut() {
+                        sink.unbounded_send(Arc::clone(&update))?;
                     }
-                    None => {}
                 }
+                None => {}
+            },
+            None => {
+                break;
             }
-            None => { break; }
         }
     }
     for sink in sinks.iter_mut() {
@@ -152,7 +152,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
          * the sinks at once before giving them a chance to run.
          */
         let mut stream = futures::stream::iter(cap.iter(Codec {}));
-        try_join!(run(&mut stream, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
+        try_join!(
+            run(&mut stream, &mut sinks),
+            futures.collect::<Vec<_>>().map(|x| Ok(x))
+        )?;
     } else {
         let device = Device::from(args.device.as_str());
         let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
@@ -160,7 +163,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cap.filter(filter.as_str(), true)?;
         cap.set_datalink(pcap::Linktype::ETHERNET)?;
         let mut stream = cap.stream(Codec {})?;
-        try_join!(run(&mut stream, &mut sinks), futures.collect::<Vec<_>>().map(|x| Ok(x)))?;
+        try_join!(
+            run(&mut stream, &mut sinks),
+            futures.collect::<Vec<_>>().map(|x| Ok(x))
+        )?;
     }
     Ok(())
 }
