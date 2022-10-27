@@ -56,6 +56,7 @@ const FIELDS: &[Field] = &[
     Field::temperature_name(108, "Inverter", "AC Temperature"),
     Field::energy(118, "PV", "Total production"),
     Field::voltage(176, "Grid"),
+    Field::voltage(184, "Load"),
     Field::power(216, "Grid"),
     Field::power(228, "Load"),
     Field::temperature(240, "Battery"),
@@ -63,6 +64,7 @@ const FIELDS: &[Field] = &[
     Field::power(248, "PV"),
     Field::power(256, "Battery"),
     Field::current(258, "Battery"),
+    Field::frequency(260, "Load"),
 ];
 
 struct Codec {}
