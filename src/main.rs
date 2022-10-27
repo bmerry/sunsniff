@@ -4,8 +4,9 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use futures::try_join;
-use influxdb2::Client;
 use pcap::{Capture, Device, Packet, PacketCodec};
+use serde::Deserialize;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use sunsniff::influxdb2::Influxdb2Receiver;
@@ -14,33 +15,24 @@ use sunsniff::receiver::{Field, Receiver, Update};
 #[derive(Debug, Parser)]
 #[clap(author, version)]
 struct Args {
-    /// Host for influxdb
-    #[clap(long, default_value = "http://localhost:8086")]
-    host: String,
+    #[clap()]
+    config_file: PathBuf,
+}
 
-    /// Organisation for influxdb
-    #[clap(long, required = true)]
-    org: String,
-
-    /// Token for influxdb
-    #[clap(long, required = true)]
-    token: String,
-
-    /// Bucket for influxdb
-    #[clap(long, required = true)]
-    bucket: String,
-
-    /// Capture device
-    #[clap(long, required = true)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PcapConfig {
     device: String,
-
-    /// Treat --device as a file rather than a device
-    #[clap(long)]
+    #[serde(default)]
     file: bool,
-
-    /// Filter expression for pcap
-    #[clap(long)]
     filter: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Config {
+    pcap: PcapConfig,
+    influxdb2: Vec<sunsniff::influxdb2::Config>,
 }
 
 const MAGIC_LENGTH: usize = 292;
@@ -122,13 +114,13 @@ async fn run<S: Stream<Item = Result<<Codec as PacketCodec>::Item, pcap::Error>>
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let client = Client::new(&args.host, &args.org, &args.token);
-    // Check that we're at least able to connect to the server
-    // TODO: actually check that the server is healthy
-    client.health().await?;
+    let config = std::fs::read_to_string(args.config_file)?;
+    let config: Config = toml::from_str(&config)?;
 
-    let receiver = Influxdb2Receiver::new(client, &args.bucket);
-    let mut receivers = vec![receiver];
+    let mut receivers: Vec<Box<dyn Receiver>> = vec![];
+    for backend in config.influxdb2.iter() {
+        receivers.push(Box::new(Influxdb2Receiver::new(&backend)));
+    }
 
     let mut sinks = vec![];
     let futures = FuturesUnordered::new();
@@ -139,14 +131,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let base_filter = "tcp";
-    let filter = match &args.filter {
+    let filter = match &config.pcap.filter {
         Some(expr) => format!("({}) and ({})", base_filter, expr),
         None => String::from(base_filter),
     };
 
     // TODO: better handling of errors from receivers
-    if args.file {
-        let mut cap = Capture::from_file(&args.device)?;
+    if config.pcap.file {
+        let mut cap = Capture::from_file(&config.pcap.device)?;
         cap.filter(filter.as_str(), true)?;
         cap.set_datalink(pcap::Linktype::ETHERNET)?;
         /* cap.stream doesn't work on files. This is a somewhat hacky
@@ -159,7 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             futures.collect::<Vec<_>>().map(|x| Ok(x))
         )?;
     } else {
-        let device = Device::from(args.device.as_str());
+        let device = Device::from(config.pcap.device.as_str());
         let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
         let mut cap = cap.setnonblock()?;
         cap.filter(filter.as_str(), true)?;

@@ -4,6 +4,7 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::stream::{self, StreamExt};
 use influxdb2::models::DataPoint;
 use influxdb2::Client;
+use serde::Deserialize;
 use std::iter::zip;
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,10 +17,12 @@ pub struct Influxdb2Receiver {
 }
 
 impl Influxdb2Receiver {
-    pub fn new(client: Client, bucket: impl Into<String>) -> Influxdb2Receiver {
+    pub fn new(config: &Config) -> Influxdb2Receiver {
+        let client = Client::new(&config.host, &config.org, &config.token);
+        // TODO: Warn if we can't connect to the server or it is unhealthy
         return Influxdb2Receiver {
             client,
-            bucket: bucket.into(),
+            bucket: config.bucket.to_owned(),
         };
     }
 }
@@ -66,4 +69,18 @@ impl Receiver for Influxdb2Receiver {
             }
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Config {
+    #[serde(default = "default_host")]
+    pub host: String,
+    pub org: String,
+    pub token: String,
+    pub bucket: String,
+}
+
+fn default_host() -> String {
+    "http://localhost:8086".to_string()
 }
