@@ -60,8 +60,9 @@ impl Receiver for Influxdb2Receiver {
                         Ok(_) => {
                             break;
                         }
-                        Err(err) => {
-                            eprintln!("Error writing to Influxdb; trying again in 5s ({:?})", err);
+                        Err(_err) => {
+                            // TODO use logging system
+                            // eprintln!("Error writing to Influxdb; trying again in 5s ({:?})", err);
                             task::sleep(Duration::from_secs(5)).await;
                         }
                     }
