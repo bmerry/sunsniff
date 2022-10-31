@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::stream::StreamExt;
+use log::warn;
 use mqtt_async_client::client::{Client, Publish, QoS};
 use phf::phf_map;
 use serde::{self, Deserialize, Serialize};
@@ -129,19 +130,19 @@ impl Receiver for MqttReceiver {
         self.client
             .connect()
             .await
-            .unwrap_or_else(|e| eprintln!("Couldn't connect to MQTT broker: {}", e));
+            .unwrap_or_else(|e| warn!("Couldn't connect to MQTT broker (will keep trying): {}", e));
         while let Some(update) = receiver.next().await {
             for (field, value) in zip(update.fields.iter(), update.values.iter()) {
                 let device_field = DeviceField::new(field, &update.serial);
                 self.register_field(&device_field)
                     .await
-                    .unwrap_or_else(|e| eprintln!("Registration failed: {}", e));
+                    .unwrap_or_else(|e| warn!("Registering {} failed: {}", field.id, e));
                 let payload = value.to_string().as_bytes().to_vec();
                 let msg = Publish::new(device_field.state_topic, payload);
                 self.client
                     .publish(&msg)
                     .await
-                    .unwrap_or_else(|e| eprintln!("Sending update failed: {}", e));
+                    .unwrap_or_else(|e| warn!("Sending update for {} failed: {}", field.id, e));
             }
         }
     }

@@ -4,6 +4,7 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::stream::{self, StreamExt};
 use influxdb2::models::DataPoint;
 use influxdb2::Client;
+use log::{info, warn};
 use serde::Deserialize;
 use std::iter::zip;
 use std::sync::Arc;
@@ -46,7 +47,7 @@ impl Receiver for Influxdb2Receiver {
                         points.push(value);
                     }
                     Err(err) => {
-                        eprintln!("Error building point: {:?}", err);
+                        warn!("Error building point: {:?}", err);
                     }
                 }
             }
@@ -60,9 +61,8 @@ impl Receiver for Influxdb2Receiver {
                         Ok(_) => {
                             break;
                         }
-                        Err(_err) => {
-                            // TODO use logging system
-                            // eprintln!("Error writing to Influxdb; trying again in 5s ({:?})", err);
+                        Err(err) => {
+                            info!("Error writing to Influxdb; trying again in 5s ({:?})", err);
                             task::sleep(Duration::from_secs(5)).await;
                         }
                     }

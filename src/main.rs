@@ -1,4 +1,5 @@
 use clap::Parser;
+use env_logger;
 use etherparse::SlicedPacket;
 use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
@@ -117,6 +118,7 @@ async fn run<S: Stream<Item = Result<<Codec as PacketCodec>::Item, pcap::Error>>
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let args = Args::parse();
     let config = std::fs::read_to_string(args.config_file)?;
     let config: Config = toml::from_str(&config)?;
