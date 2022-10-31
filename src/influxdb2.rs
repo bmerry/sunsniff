@@ -17,13 +17,13 @@ pub struct Influxdb2Receiver {
 }
 
 impl Influxdb2Receiver {
-    pub fn new(config: &Config) -> Influxdb2Receiver {
+    pub fn new(config: &Config) -> Self {
         let client = Client::new(&config.host, &config.org, &config.token);
         // TODO: Warn if we can't connect to the server or it is unhealthy
-        return Influxdb2Receiver {
+        Self {
             client,
             bucket: config.bucket.to_owned(),
-        };
+        }
     }
 }
 
