@@ -18,6 +18,9 @@ name = "sunsniff"
 version = "0.1.0"
 edition = "2021"
 authors = ["Bruce Merry"]
+license = "GPL-3.0-or-later"
+description = "Intercept and store telemetry from a Sunsynk inverter"
+repository = "https://github.com/bmerry/sunsniff"
 
 [dependencies]
 async-std = "1.12.0"
