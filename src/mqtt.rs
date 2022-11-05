@@ -26,7 +26,8 @@ use std::collections::HashSet;
 use std::iter::zip;
 use std::sync::Arc;
 
-use super::receiver::{Field, Receiver, Update};
+use super::fields::Field;
+use super::receiver::{Receiver, Update};
 
 struct ClassInfo<'a> {
     device_class: Option<&'a str>,

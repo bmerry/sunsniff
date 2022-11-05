@@ -28,9 +28,10 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use sunsniff::fields::{self, FIELDS};
 use sunsniff::influxdb2::Influxdb2Receiver;
 use sunsniff::mqtt::MqttReceiver;
-use sunsniff::receiver::{Field, Receiver, Update};
+use sunsniff::receiver::{Receiver, Update};
 
 #[derive(Debug, Parser)]
 #[clap(author, version)]
@@ -59,56 +60,20 @@ struct Config {
     mqtt: Vec<sunsniff::mqtt::Config>,
 }
 
-const MAGIC_LENGTH: usize = 292;
-const MAGIC_HEADER: u8 = 0xa5;
-const SERIAL_OFFSET: usize = 11;
-const SERIAL_LENGTH: usize = 10;
-const DATETIME_OFFSET: usize = 37;
-const FIELDS: &[Field] = &[
-    Field::energy(70, "Battery", "Total charge", "battery_charge_total"),
-    Field::energy(74, "Battery", "Total discharge", "battery_discharge_total"),
-    Field::energy(82, "Grid", "Total import", "grid_import_total"),
-    Field::energy(88, "Grid", "Total export", "grid_export_total"),
-    Field::frequency(84, "Grid", "grid_frequency"),
-    Field::energy(96, "Load", "Total consumption", "load_consumption_total"),
-    Field::temperature_name(106, "Inverter", "DC Temperature", "inverter_temperature_dc"),
-    Field::temperature_name(108, "Inverter", "AC Temperature", "inverter_temperature_ac"),
-    Field::energy(118, "PV", "Total production", "pv_production_total"),
-    Field::new(
-        140,
-        "Battery",
-        "Capacity",
-        "battery_capacity",
-        1.0,
-        0.0,
-        "Ah",
-    ),
-    Field::voltage(176, "Grid", "grid_voltage"),
-    Field::voltage(184, "Load", "load_voltage"),
-    Field::power(216, "Grid", "grid_power"),
-    Field::power(228, "Load", "load_power"),
-    Field::temperature(240, "Battery", "battery_temperature"),
-    Field::new(244, "Battery", "SOC", "battery_soc", 1.0, 0.0, "%"),
-    Field::power(248, "PV", "pv_power"),
-    Field::power(256, "Battery", "battery_power"),
-    Field::current(258, "Battery", "battery_current"),
-    Field::frequency(260, "Load", "load_frequency"),
-];
-
 struct Codec {
     pub tz: Tz,
 }
 
 fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
     let dt = NaiveDate::from_ymd_opt(
-        payload[DATETIME_OFFSET] as i32 + 2000,
-        payload[DATETIME_OFFSET + 1] as u32,
-        payload[DATETIME_OFFSET + 2] as u32,
+        payload[fields::DATETIME_OFFSET] as i32 + 2000,
+        payload[fields::DATETIME_OFFSET + 1] as u32,
+        payload[fields::DATETIME_OFFSET + 2] as u32,
     )?
     .and_hms_opt(
-        payload[DATETIME_OFFSET + 3] as u32,
-        payload[DATETIME_OFFSET + 4] as u32,
-        payload[DATETIME_OFFSET + 5] as u32,
+        payload[fields::DATETIME_OFFSET + 3] as u32,
+        payload[fields::DATETIME_OFFSET + 4] as u32,
+        payload[fields::DATETIME_OFFSET + 5] as u32,
     )?
     .and_local_timezone(tz);
     match dt {
@@ -122,7 +87,9 @@ impl PacketCodec for Codec {
 
     fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
         if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
-            if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
+            if sliced.payload.len() == fields::MAGIC_LENGTH
+                && sliced.payload[0] == fields::MAGIC_HEADER
+            {
                 let dt = match parse_timestamp(sliced.payload, self.tz) {
                     Some(x) => x,
                     None => {
@@ -130,7 +97,8 @@ impl PacketCodec for Codec {
                     }
                 };
                 let serial = std::str::from_utf8(
-                    &sliced.payload[SERIAL_OFFSET..(SERIAL_OFFSET + SERIAL_LENGTH)],
+                    &sliced.payload
+                        [fields::SERIAL_OFFSET..(fields::SERIAL_OFFSET + fields::SERIAL_LENGTH)],
                 )
                 .unwrap_or("unknown");
                 info!(
