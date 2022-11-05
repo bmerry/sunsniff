@@ -148,7 +148,7 @@ impl MqttReceiver {
                 serde_json::to_vec(&sensor).unwrap(),
             );
             let msg = msg.set_retain(true).set_qos(QoS::AtLeastOnce);
-            self.client.publish(&msg).await?;
+            self.client.publish(msg).await?;
             self.registered.insert(field.unique_id.to_owned());
         }
         Ok(())

@@ -17,7 +17,6 @@
 use chrono::{DateTime, LocalResult, NaiveDate};
 use chrono_tz::Tz;
 use clap::Parser;
-use env_logger;
 use etherparse::SlicedPacket;
 use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
@@ -102,7 +101,7 @@ struct Codec {
 
 fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
     let dt = NaiveDate::from_ymd_opt(
-        payload[DATETIME_OFFSET + 0] as i32 + 2000,
+        payload[DATETIME_OFFSET] as i32 + 2000,
         payload[DATETIME_OFFSET + 1] as u32,
         payload[DATETIME_OFFSET + 2] as u32,
     )?
@@ -158,18 +157,10 @@ async fn run<S: Stream<Item = Result<<Codec as PacketCodec>::Item, pcap::Error>>
     stream: &mut S,
     sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    loop {
-        match stream.next().await {
-            Some(item) => match item? {
-                Some(update) => {
-                    for sink in sinks.iter_mut() {
-                        sink.unbounded_send(Arc::clone(&update))?;
-                    }
-                }
-                None => {}
-            },
-            None => {
-                break;
+    while let Some(item) = stream.next().await {
+        if let Some(update) = item? {
+            for sink in sinks.iter_mut() {
+                sink.unbounded_send(Arc::clone(&update))?;
             }
         }
     }
@@ -188,10 +179,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut receivers: Vec<Box<dyn Receiver>> = vec![];
     for backend in config.influxdb2.iter() {
-        receivers.push(Box::new(Influxdb2Receiver::new(&backend)));
+        receivers.push(Box::new(Influxdb2Receiver::new(backend)));
     }
     for backend in config.mqtt.iter() {
-        receivers.push(Box::new(MqttReceiver::new(&backend)?));
+        receivers.push(Box::new(MqttReceiver::new(backend)?));
     }
 
     let mut sinks = vec![];
@@ -223,7 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut stream = futures::stream::iter(cap.iter(codec));
         try_join!(
             run(&mut stream, &mut sinks),
-            futures.collect::<Vec<_>>().map(|x| Ok(x))
+            futures.collect::<Vec<_>>().map(Ok)
         )?;
     } else {
         let device = Device::from(config.pcap.device.as_str());
@@ -234,7 +225,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut stream = cap.stream(codec)?;
         try_join!(
             run(&mut stream, &mut sinks),
-            futures.collect::<Vec<_>>().map(|x| Ok(x))
+            futures.collect::<Vec<_>>().map(Ok)
         )?;
     }
     Ok(())

@@ -67,7 +67,7 @@ impl Receiver for Influxdb2Receiver {
                     }
                 }
             }
-            if points.len() > 0 {
+            if !points.is_empty() {
                 loop {
                     match self
                         .client
