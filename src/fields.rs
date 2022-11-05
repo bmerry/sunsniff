@@ -82,6 +82,10 @@ impl<'a> Field<'a> {
         // needed to figure out where the high bits live.
         Field::new(offset, group, name, id, 0.1, 0.0, "kWh")
     }
+
+    pub const fn charge(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
+        Field::new(offset, group, name, id, 1.0, 0.0, "Ah")
+    }
 }
 
 pub const MAGIC_LENGTH: usize = 292;
@@ -98,15 +102,7 @@ pub const FIELDS: &[Field] = &[
     Field::temperature_name(106, "Inverter", "DC Temperature", "inverter_temperature_dc"),
     Field::temperature_name(108, "Inverter", "AC Temperature", "inverter_temperature_ac"),
     Field::energy(118, "PV", "Total production", "pv_production_total"),
-    Field::new(
-        140,
-        "Battery",
-        "Capacity",
-        "battery_capacity",
-        1.0,
-        0.0,
-        "Ah",
-    ),
+    Field::charge(140, "Battery", "Capacity", "battery_capacity"),
     Field::voltage(176, "Grid", "grid_voltage"),
     Field::voltage(184, "Load", "load_voltage"),
     Field::power(216, "Grid", "grid_power"),
