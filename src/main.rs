@@ -96,11 +96,7 @@ impl PacketCodec for Codec {
                         return None; // Parse error means it's probably not the packet we expected
                     }
                 };
-                let serial = std::str::from_utf8(
-                    &sliced.payload
-                        [fields::SERIAL_OFFSET..(fields::SERIAL_OFFSET + fields::SERIAL_LENGTH)],
-                )
-                .unwrap_or("unknown");
+                let serial = std::str::from_utf8(&sliced.payload[fields::SERIAL_RANGE]).unwrap_or("unknown");
                 info!(
                     "Received packet with timestamp {:?} for inverter {}",
                     dt, serial

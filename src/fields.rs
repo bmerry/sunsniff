@@ -14,6 +14,8 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+use std::ops::Range;
+
 #[derive(Debug)]
 pub struct Field<'a> {
     pub offset: usize,
@@ -84,8 +86,7 @@ impl<'a> Field<'a> {
 
 pub const MAGIC_LENGTH: usize = 292;
 pub const MAGIC_HEADER: u8 = 0xa5; // First byte in the packet
-pub const SERIAL_OFFSET: usize = 11;
-pub const SERIAL_LENGTH: usize = 10;
+pub const SERIAL_RANGE: Range<usize> = 11..21;
 pub const DATETIME_OFFSET: usize = 37;
 pub const FIELDS: &[Field] = &[
     Field::energy(70, "Battery", "Total charge", "battery_charge_total"),
