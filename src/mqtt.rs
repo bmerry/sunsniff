@@ -35,11 +35,17 @@ struct ClassInfo<'a> {
 
 impl<'a> ClassInfo<'a> {
     const fn new(device_class: &'a str, state_class: &'a str) -> Self {
-        ClassInfo{device_class: Some(device_class), state_class}
+        ClassInfo {
+            device_class: Some(device_class),
+            state_class,
+        }
     }
 
     const fn new_no_device(state_class: &'a str) -> Self {
-        ClassInfo{device_class: None, state_class}
+        ClassInfo {
+            device_class: None,
+            state_class,
+        }
     }
 }
 
@@ -52,6 +58,7 @@ static CLASSES: phf::Map<&'static str, ClassInfo<'static>> = phf_map! {
     "kWh" => ClassInfo::new("energy", "total_increasing"),
     "%" => ClassInfo::new("battery", "measurement"),
     "Hz" => ClassInfo::new_no_device("measurement"),
+    "Ah" => ClassInfo::new_no_device("measurement"),
 };
 
 #[derive(Serialize)]
@@ -92,7 +99,7 @@ impl<'a> DeviceField<'a> {
             serial,
             unique_id,
             state_topic,
-            config_topic
+            config_topic,
         }
     }
 }
@@ -109,7 +116,10 @@ impl MqttReceiver {
             .set_username(config.username.clone())
             .set_password(config.password.as_ref().map(|s| s.as_bytes().to_vec()))
             .build()?;
-        Ok(MqttReceiver { client, registered: HashSet::new() })
+        Ok(MqttReceiver {
+            client,
+            registered: HashSet::new(),
+        })
     }
 
     async fn register_field<'a>(
@@ -118,9 +128,11 @@ impl MqttReceiver {
     ) -> mqtt_async_client::Result<()> {
         if !self.registered.contains(&field.unique_id) {
             let full_name = format!("{} {}", field.field.group, field.field.name);
-            let class_info = CLASSES.get(field.field.unit).unwrap();  // TODO: deal better with errors
+            let class_info = CLASSES.get(field.field.unit).unwrap(); // TODO: deal better with errors
             let sensor = Sensor {
-                device: Device { identifiers: (field.serial,) },
+                device: Device {
+                    identifiers: (field.serial,),
+                },
                 device_class: class_info.device_class,
                 expire_after: 600,
                 name: &full_name,
@@ -131,7 +143,10 @@ impl MqttReceiver {
                 unit_of_measurement: field.field.unit,
             };
             // TODO: more graceful error handling on to_vec
-            let mut msg = Publish::new(field.config_topic.to_owned(), serde_json::to_vec(&sensor).unwrap());
+            let mut msg = Publish::new(
+                field.config_topic.to_owned(),
+                serde_json::to_vec(&sensor).unwrap(),
+            );
             let msg = msg.set_retain(true).set_qos(QoS::AtLeastOnce);
             self.client.publish(&msg).await?;
             self.registered.insert(field.unique_id.to_owned());

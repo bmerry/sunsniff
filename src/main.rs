@@ -14,6 +14,8 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+use chrono::{DateTime, LocalResult, NaiveDate};
+use chrono_tz::Tz;
 use clap::Parser;
 use env_logger;
 use etherparse::SlicedPacket;
@@ -21,6 +23,7 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use futures::try_join;
+use log::info;
 use pcap::{Capture, Device, Packet, PacketCodec};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -44,6 +47,7 @@ struct PcapConfig {
     #[serde(default)]
     file: bool,
     filter: Option<String>,
+    timezone: Tz,
 }
 
 #[derive(Deserialize)]
@@ -58,6 +62,9 @@ struct Config {
 
 const MAGIC_LENGTH: usize = 292;
 const MAGIC_HEADER: u8 = 0xa5;
+const SERIAL_OFFSET: usize = 11;
+const SERIAL_LENGTH: usize = 10;
+const DATETIME_OFFSET: usize = 37;
 const FIELDS: &[Field] = &[
     Field::energy(70, "Battery", "Total charge", "battery_charge_total"),
     Field::energy(74, "Battery", "Total discharge", "battery_discharge_total"),
@@ -68,6 +75,15 @@ const FIELDS: &[Field] = &[
     Field::temperature_name(106, "Inverter", "DC Temperature", "inverter_temperature_dc"),
     Field::temperature_name(108, "Inverter", "AC Temperature", "inverter_temperature_ac"),
     Field::energy(118, "PV", "Total production", "pv_production_total"),
+    Field::new(
+        140,
+        "Battery",
+        "Capacity",
+        "battery_capacity",
+        1.0,
+        0.0,
+        "Ah",
+    ),
     Field::voltage(176, "Grid", "grid_voltage"),
     Field::voltage(184, "Load", "load_voltage"),
     Field::power(216, "Grid", "grid_power"),
@@ -80,7 +96,27 @@ const FIELDS: &[Field] = &[
     Field::frequency(260, "Load", "load_frequency"),
 ];
 
-struct Codec {}
+struct Codec {
+    pub tz: Tz,
+}
+
+fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
+    let dt = NaiveDate::from_ymd_opt(
+        payload[DATETIME_OFFSET + 0] as i32 + 2000,
+        payload[DATETIME_OFFSET + 1] as u32,
+        payload[DATETIME_OFFSET + 2] as u32,
+    )?
+    .and_hms_opt(
+        payload[DATETIME_OFFSET + 3] as u32,
+        payload[DATETIME_OFFSET + 4] as u32,
+        payload[DATETIME_OFFSET + 5] as u32,
+    )?
+    .and_local_timezone(tz);
+    match dt {
+        LocalResult::Single(x) => Some(x),
+        _ => None, // TODO: what to do with ambiguous times - try to guess based on history?
+    }
+}
 
 impl PacketCodec for Codec {
     type Item = Option<Arc<Update<'static>>>;
@@ -88,9 +124,20 @@ impl PacketCodec for Codec {
     fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
         if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
             if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
-                let serial = std::str::from_utf8(&sliced.payload[11..21]).unwrap_or("unknown");
-                let timestamp = (packet.header.ts.tv_sec as i64) * 1000000000i64
-                    + (packet.header.ts.tv_usec as i64) * 1000i64;
+                let dt = match parse_timestamp(sliced.payload, self.tz) {
+                    Some(x) => x,
+                    None => {
+                        return None; // Parse error means it's probably not the packet we expected
+                    }
+                };
+                let serial = std::str::from_utf8(
+                    &sliced.payload[SERIAL_OFFSET..(SERIAL_OFFSET + SERIAL_LENGTH)],
+                )
+                .unwrap_or("unknown");
+                info!(
+                    "Received packet with timestamp {:?} for inverter {}",
+                    dt, serial
+                );
                 let mut values = vec![];
                 for field in FIELDS.iter() {
                     let bytes = &sliced.payload[field.offset..field.offset + 2];
@@ -99,7 +146,7 @@ impl PacketCodec for Codec {
                     let value = (value as f64) * field.scale + field.bias;
                     values.push(value);
                 }
-                let update = Update::new(timestamp, serial, FIELDS, values);
+                let update = Update::new(dt.timestamp_nanos(), serial, FIELDS, values);
                 return Some(Arc::new(update));
             }
         }
@@ -162,6 +209,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // TODO: better handling of errors from receivers
+    let codec = Codec {
+        tz: config.pcap.timezone,
+    };
     if config.pcap.file {
         let mut cap = Capture::from_file(&config.pcap.device)?;
         cap.filter(filter.as_str(), true)?;
@@ -170,7 +220,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
          * workaround: it's probably going to load all the packets into
          * the sinks at once before giving them a chance to run.
          */
-        let mut stream = futures::stream::iter(cap.iter(Codec {}));
+        let mut stream = futures::stream::iter(cap.iter(codec));
         try_join!(
             run(&mut stream, &mut sinks),
             futures.collect::<Vec<_>>().map(|x| Ok(x))
@@ -181,7 +231,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut cap = cap.setnonblock()?;
         cap.filter(filter.as_str(), true)?;
         cap.set_datalink(pcap::Linktype::ETHERNET)?;
-        let mut stream = cap.stream(Codec {})?;
+        let mut stream = cap.stream(codec)?;
         try_join!(
             run(&mut stream, &mut sinks),
             futures.collect::<Vec<_>>().map(|x| Ok(x))

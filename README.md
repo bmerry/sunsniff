@@ -23,28 +23,27 @@ TODO:
 ## Configuration
 
 Configuration is stored in a [TOML](https://toml.io/) file, which is passed on
-the command line. There is one mandatory section, `[pcap]`. There is one
-mandatory setting, `device`, which is the Ethernet device to capture. Note
-that the `any` device is not currently supported. The optional (but strongly
-recommended) `filter` setting specifies a pcap filter to select the traffic to
-inspect. I have the following setup:
+the command line. There is one mandatory section, `[pcap]`. It has the following
+fields:
+
+- `device` (required): the Ethernet device to capture. Note that the `any`
+  device is not currently supported.
+- `filter` (optional but recommended): A pcap filter to select the traffic to
+  inspect. If the `device` handles data for any other devices on the network
+  then setting `filter` is necessary to prevent other data from being
+  accidentally interpreted as sensor readings.
+- `file` (optional): if set to true, then `device` is interpreted as a pcap
+  file rather than a device. Note that the pcap file is fully loaded into
+  memory, so it should not be used with very large files.
+- `timezone` (required): The timezone name used by the inverter. This is used
+  to convert the timestamps to UTC.
+
+I have the following setup:
 ```
 [pcap]
 device = "br0"
-filter = "src host 192.168.0.201"
-```
-
-If the `device` handles data for any other devices on the network then setting
-`filter` is necessary to prevent other data from being accidentally
-interpreted as sensor readings and inserting bogus data.
-
-For debugging, you can instead use a pcap file rather than a device. Note that
-the pcap file is fully loaded into memory, so it should not be used with very
-large files. An example looks like this:
-```
-[pcap]
-device = "my-capture-file.pcap"
-file = true
+filter = "src host 192.168.0.21"
+timezone = "Africa/Johannesburg"
 ```
 
 This just configures the data capture, but you should also specify at least

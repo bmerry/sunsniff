@@ -75,7 +75,12 @@ impl<'a> Field<'a> {
         return Field::new(offset, group, "Current", id, 0.01, 0.0, "A");
     }
 
-    pub const fn temperature_name(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Field {
+    pub const fn temperature_name(
+        offset: usize,
+        group: &'a str,
+        name: &'a str,
+        id: &'a str,
+    ) -> Field {
         return Field::new(offset, group, name, id, 0.1, -100.0, "°C");
     }
 

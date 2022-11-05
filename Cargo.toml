@@ -25,6 +25,8 @@ repository = "https://github.com/bmerry/sunsniff"
 [dependencies]
 async-std = "1.12.0"
 async-trait = "0.1.57"
+chrono = { version = "0.4.22", default-features = false, features = ["std"] }
+chrono-tz = { version = "0.8.0", features = ["serde"] }
 clap = { version = "4.0.10", features = ["derive"] }
 env_logger = "0.9.1"
 etherparse = "0.12.0"
