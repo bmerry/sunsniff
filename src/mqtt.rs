@@ -19,14 +19,13 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::stream::StreamExt;
 use log::warn;
 use mqtt_async_client::client::{Client, Publish, QoS};
-use phf::phf_map;
 use serde::{self, Deserialize, Serialize};
 use serde_json;
 use std::collections::HashSet;
 use std::iter::zip;
 use std::sync::Arc;
 
-use super::fields::Field;
+use super::fields::{Field, FieldType};
 use super::receiver::{Receiver, Update};
 
 struct ClassInfo<'a> {
@@ -50,17 +49,20 @@ impl<'a> ClassInfo<'a> {
     }
 }
 
-// TODO: add a level of abstraction to Field. Should be able to index by enum, not str
-static CLASSES: phf::Map<&'static str, ClassInfo<'static>> = phf_map! {
-    "°C" => ClassInfo::new("temperature", "measurement"),
-    "W" => ClassInfo::new("power", "measurement"),
-    "A" => ClassInfo::new("current", "measurement"),
-    "V" => ClassInfo::new("voltage", "measurement"),
-    "kWh" => ClassInfo::new("energy", "total_increasing"),
-    "%" => ClassInfo::new("battery", "measurement"),
-    "Hz" => ClassInfo::new_no_device("measurement"),
-    "Ah" => ClassInfo::new_no_device("measurement"),
-};
+impl From<FieldType> for ClassInfo<'static> {
+    fn from(ft: FieldType) -> Self {
+        match ft {
+            FieldType::Charge => ClassInfo::new_no_device("measurement"),
+            FieldType::Current => ClassInfo::new("current", "measurement"),
+            FieldType::Energy => ClassInfo::new("energy", "total_increasing"),
+            FieldType::Frequency => ClassInfo::new_no_device("measurement"),
+            FieldType::Power => ClassInfo::new("power", "measurement"),
+            FieldType::StateOfCharge => ClassInfo::new("battery", "measurement"),
+            FieldType::Temperature => ClassInfo::new("temperature", "measurement"),
+            FieldType::Voltage => ClassInfo::new("voltage", "measurement"),
+        }
+    }
+}
 
 #[derive(Serialize)]
 struct Device<'a> {
@@ -129,7 +131,7 @@ impl MqttReceiver {
     ) -> mqtt_async_client::Result<()> {
         if !self.registered.contains(&field.unique_id) {
             let full_name = format!("{} {}", field.field.group, field.field.name);
-            let class_info = CLASSES.get(field.field.unit).unwrap(); // TODO: deal better with errors
+            let class_info: ClassInfo = field.field.field_type.into();
             let sensor = Sensor {
                 device: Device {
                     identifiers: (field.serial,),

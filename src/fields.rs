@@ -16,8 +16,21 @@
 
 use std::ops::Range;
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum FieldType {
+    Charge,
+    Current,
+    Energy,
+    Frequency,
+    Power,
+    StateOfCharge,
+    Temperature,
+    Voltage,
+}
+
 #[derive(Debug)]
 pub struct Field<'a> {
+    pub field_type: FieldType,
     pub offset: usize,
     pub group: &'a str,
     pub name: &'a str,
@@ -29,6 +42,7 @@ pub struct Field<'a> {
 
 impl<'a> Field<'a> {
     pub const fn new(
+        field_type: FieldType,
         offset: usize,
         group: &'a str,
         name: &'a str,
@@ -38,6 +52,7 @@ impl<'a> Field<'a> {
         unit: &'a str,
     ) -> Self {
         Field {
+            field_type,
             offset,
             group,
             name,
@@ -49,15 +64,15 @@ impl<'a> Field<'a> {
     }
 
     pub const fn power(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(offset, group, "Power", id, 1.0, 0.0, "W")
+        Field::new(FieldType::Power, offset, group, "Power", id, 1.0, 0.0, "W")
     }
 
     pub const fn voltage(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(offset, group, "Voltage", id, 0.1, 0.0, "V")
+        Field::new(FieldType::Voltage, offset, group, "Voltage", id, 0.1, 0.0, "V")
     }
 
     pub const fn current(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(offset, group, "Current", id, 0.01, 0.0, "A")
+        Field::new(FieldType::Current, offset, group, "Current", id, 0.01, 0.0, "A")
     }
 
     pub const fn temperature_name(
@@ -66,7 +81,7 @@ impl<'a> Field<'a> {
         name: &'a str,
         id: &'a str,
     ) -> Self {
-        Field::new(offset, group, name, id, 0.1, -100.0, "°C")
+        Field::new(FieldType::Temperature, offset, group, name, id, 0.1, -100.0, "°C")
     }
 
     pub const fn temperature(offset: usize, group: &'a str, id: &'a str) -> Self {
@@ -74,17 +89,17 @@ impl<'a> Field<'a> {
     }
 
     pub const fn frequency(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(offset, group, "Frequency", id, 0.01, 0.0, "Hz")
+        Field::new(FieldType::Frequency, offset, group, "Frequency", id, 0.01, 0.0, "Hz")
     }
 
     pub const fn energy(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
         // TODO: these are probably 32-bit values, but more investigation is
         // needed to figure out where the high bits live.
-        Field::new(offset, group, name, id, 0.1, 0.0, "kWh")
+        Field::new(FieldType::Energy, offset, group, name, id, 0.1, 0.0, "kWh")
     }
 
     pub const fn charge(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
-        Field::new(offset, group, name, id, 1.0, 0.0, "Ah")
+        Field::new(FieldType::Charge, offset, group, name, id, 1.0, 0.0, "Ah")
     }
 }
 
@@ -108,7 +123,7 @@ pub const FIELDS: &[Field] = &[
     Field::power(216, "Grid", "grid_power"),
     Field::power(228, "Load", "load_power"),
     Field::temperature(240, "Battery", "battery_temperature"),
-    Field::new(244, "Battery", "SOC", "battery_soc", 1.0, 0.0, "%"),
+    Field::new(FieldType::StateOfCharge, 244, "Battery", "SOC", "battery_soc", 1.0, 0.0, "%"),
     Field::power(248, "PV", "pv_power"),
     Field::power(256, "Battery", "battery_power"),
     Field::current(258, "Battery", "battery_current"),
