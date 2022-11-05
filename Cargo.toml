@@ -22,6 +22,10 @@ license = "GPL-3.0-or-later"
 description = "Intercept and store telemetry from a Sunsynk inverter"
 repository = "https://github.com/bmerry/sunsniff"
 
+[profile.release]
+strip = true
+lto = true
+
 [package.metadata.cross.build]
 pre-build = [
     "apt-get update && apt-get install -y flex bison",
