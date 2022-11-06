@@ -118,11 +118,16 @@ So far I've only tested this with my personal setup. I'm hoping other devices
 will work too. If it works for you, please let me know.
 
 - Inverter: Sunsynk 5 kW (Sunsynk-5K-SG01LP1)
-- Dongle: unbranded Inteless dongle (it has red and green lights)
+- Dongle: unbranded Inteless dongle (it has red and green lights). Apparently
+  the Sunsynk-branded dongle is the same thing.
 
 ## Troubleshooting
 
+Logging is done with
+[env_logger](https://docs.rs/env_logger/latest/env_logger/), so you can
+enable debugging by setting the environment variable `RUST_LOG=debug`. There
+isn't very much logging yet though.
+
 TODO:
-- Explain how to enable logging
 - Explain what to look for in a packet capture
 - Explain that missing pcap filter can cause bogus data
