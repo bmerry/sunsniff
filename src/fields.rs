@@ -41,38 +41,43 @@ pub struct Field<'a> {
 }
 
 impl<'a> Field<'a> {
-    pub const fn new(
-        field_type: FieldType,
-        offset: usize,
-        group: &'a str,
-        name: &'a str,
-        id: &'a str,
-        scale: f64,
-        bias: f64,
-        unit: &'a str,
-    ) -> Self {
+    pub const fn power(offset: usize, group: &'a str, id: &'a str) -> Self {
         Field {
-            field_type,
+            field_type: FieldType::Power,
             offset,
             group,
-            name,
+            name: "Power",
             id,
-            scale,
-            bias,
-            unit,
+            scale: 1.0,
+            bias: 0.0,
+            unit: "W"
         }
     }
 
-    pub const fn power(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(FieldType::Power, offset, group, "Power", id, 1.0, 0.0, "W")
-    }
-
     pub const fn voltage(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(FieldType::Voltage, offset, group, "Voltage", id, 0.1, 0.0, "V")
+        Field {
+            field_type: FieldType::Voltage,
+            offset,
+            group,
+            name: "Voltage",
+            id,
+            scale: 0.1,
+            bias: 0.0,
+            unit: "V"
+        }
     }
 
     pub const fn current(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(FieldType::Current, offset, group, "Current", id, 0.01, 0.0, "A")
+        Field {
+            field_type: FieldType::Current,
+            offset,
+            group,
+            name: "Current",
+            id,
+            scale: 0.01,
+            bias: 0.0,
+            unit: "A"
+        }
     }
 
     pub const fn temperature_name(
@@ -81,7 +86,16 @@ impl<'a> Field<'a> {
         name: &'a str,
         id: &'a str,
     ) -> Self {
-        Field::new(FieldType::Temperature, offset, group, name, id, 0.1, -100.0, "°C")
+        Field {
+            field_type: FieldType::Temperature,
+            offset,
+            group,
+            name,
+            id,
+            scale: 0.1,
+            bias: -100.0,
+            unit: "°C"
+        }
     }
 
     pub const fn temperature(offset: usize, group: &'a str, id: &'a str) -> Self {
@@ -89,17 +103,57 @@ impl<'a> Field<'a> {
     }
 
     pub const fn frequency(offset: usize, group: &'a str, id: &'a str) -> Self {
-        Field::new(FieldType::Frequency, offset, group, "Frequency", id, 0.01, 0.0, "Hz")
+        Field {
+            field_type: FieldType::Frequency,
+            offset,
+            group,
+            name: "Frequency",
+            id,
+            scale: 0.01,
+            bias: 0.0,
+            unit: "Hz"
+        }
     }
 
     pub const fn energy(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
         // TODO: these are probably 32-bit values, but more investigation is
         // needed to figure out where the high bits live.
-        Field::new(FieldType::Energy, offset, group, name, id, 0.1, 0.0, "kWh")
+        Field {
+            field_type: FieldType::Energy,
+            offset,
+            group,
+            name,
+            id,
+            scale: 0.1,
+            bias: 0.0,
+            unit: "kWh"
+        }
     }
 
     pub const fn charge(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
-        Field::new(FieldType::Charge, offset, group, name, id, 1.0, 0.0, "Ah")
+        Field {
+            field_type: FieldType::Charge,
+            offset,
+            group,
+            name,
+            id,
+            scale: 1.0,
+            bias: 0.0,
+            unit: "Ah"
+        }
+    }
+
+    pub const fn state_of_charge(offset: usize, group: &'a str, id: &'a str) -> Self {
+        Field {
+            field_type: FieldType::StateOfCharge,
+            offset,
+            group,
+            name: "SOC",
+            id,
+            scale: 1.0,
+            bias: 0.0,
+            unit: "%"
+        }
     }
 }
 
@@ -123,7 +177,7 @@ pub const FIELDS: &[Field] = &[
     Field::power(216, "Grid", "grid_power"),
     Field::power(228, "Load", "load_power"),
     Field::temperature(240, "Battery", "battery_temperature"),
-    Field::new(FieldType::StateOfCharge, 244, "Battery", "SOC", "battery_soc", 1.0, 0.0, "%"),
+    Field::state_of_charge(244, "Battery", "battery_soc"),
     Field::power(248, "PV", "pv_power"),
     Field::power(256, "Battery", "battery_power"),
     Field::current(258, "Battery", "battery_current"),
