@@ -18,8 +18,9 @@ operation.
 
 1. Install Rust e.g. using [these instructions](https://www.rust-lang.org/learn/get-started).
 2. Ensure that you have a C compiler and linker, and libpcap installed.
-3. Run `cargo build --release`. This will compile the binary to
-   `target/release/sunsniff`.
+3. Run `cargo install sunsniff` to install the binary. Alternatively,
+   check out the repository and run `cargo build --release`. This will compile
+   the binary to `target/release/sunsniff`.
 
 If you want to cross-compile:
 
