@@ -14,11 +14,25 @@ The good news is that by design it intercepts traffic but does not send any
 commands to your inverter, so it can't interfere with the inverter's
 operation.
 
-## Installation
+## Compilation
 
-TODO:
-- write basic instructions for installation using cargo
-- write instructions for cross-compilation
+1. Install Rust e.g. using [these instructions](https://www.rust-lang.org/learn/get-started).
+2. Ensure that you have a C compiler and linker, and libpcap installed.
+3. Run `cargo build --release`. This will compile the binary to
+   `target/release/sunsniff`.
+
+If you want to cross-compile:
+
+1. Install and set up [cross](https://github.com/cross-rs/cross) e.g. using
+   [these
+   instructions](https://github.com/cross-rs/cross/wiki/Getting-Started).
+2. Run `cross build --release --target=armv7-unknown-linux-gnueabihf` (replace
+   with your target architecture).
+3. Find the binary in `target/<arch>/release/target`.
+
+I had problems because the resulting binary needed a newer glibc than the host
+I was targeting. To build a static binary, set the environment variable
+`RUSTFLAGS` to `-C target-feature=+crt-static -lpcap`.
 
 ## Configuration
 
