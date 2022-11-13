@@ -41,17 +41,21 @@ pub struct Field<'a> {
 }
 
 impl<'a> Field<'a> {
-    pub const fn power(offset: usize, group: &'a str, id: &'a str) -> Self {
+    pub const fn power_name(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
         Field {
             field_type: FieldType::Power,
             offset,
             group,
-            name: "Power",
+            name,
             id,
             scale: 1.0,
             bias: 0.0,
             unit: "W"
         }
+    }
+
+    pub const fn power(offset: usize, group: &'a str, id: &'a str) -> Self {
+        Field::power_name(offset, group, "Power", id)
     }
 
     pub const fn voltage_name(offset: usize, group: &'a str, name: &'a str, id: &'a str, scale: f64) -> Self {
@@ -188,6 +192,7 @@ pub const FIELDS: &[Field] = &[
     Field::voltage(184, "Load", "load_voltage", 0.1), // Might also be 188
     Field::current(196, "Grid", "grid_current", 0.01),
     Field::current(204, "Load", "load_current", 0.01),
+    Field::power_name(210, "Grid", "Power L1", "grid_power_l1"),
     Field::power(216, "Grid", "grid_power"), // Might also be 214 or 220
     Field::power(222, "Inverter", "inverter_power"), // Might also be 226
     Field::power(228, "Load", "load_power"), // Or 232 (one is P-load, the other P-Load-L1)
