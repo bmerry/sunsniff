@@ -132,3 +132,13 @@ isn't very much logging yet though.
 TODO:
 - Explain what to look for in a packet capture
 - Explain that missing pcap filter can cause bogus data
+
+## Changelog
+
+### 0.1.1
+
+Add more fields.
+
+### 0.1.0
+
+First release.
