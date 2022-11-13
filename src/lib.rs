@@ -15,6 +15,8 @@
  */
 
 pub mod fields;
+#[cfg(feature = "influxdb2")]
 pub mod influxdb2;
+#[cfg(feature = "mqtt")]
 pub mod mqtt;
 pub mod receiver;

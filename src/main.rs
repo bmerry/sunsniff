@@ -29,7 +29,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use sunsniff::fields::{self, FIELDS};
+#[cfg(feature = "influxdb2")]
 use sunsniff::influxdb2::Influxdb2Receiver;
+#[cfg(feature = "mqtt")]
 use sunsniff::mqtt::MqttReceiver;
 use sunsniff::receiver::{Receiver, Update};
 
@@ -54,8 +56,10 @@ struct PcapConfig {
 #[serde(deny_unknown_fields)]
 struct Config {
     pcap: PcapConfig,
+    #[cfg(feature = "influxdb2")]
     #[serde(default)]
     influxdb2: Vec<sunsniff::influxdb2::Config>,
+    #[cfg(feature = "mqtt")]
     #[serde(default)]
     mqtt: Vec<sunsniff::mqtt::Config>,
 }
@@ -142,11 +146,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: Config = toml::from_str(&config)?;
 
     let mut receivers: Vec<Box<dyn Receiver>> = vec![];
-    for backend in config.influxdb2.iter() {
-        receivers.push(Box::new(Influxdb2Receiver::new(backend)));
+    #[cfg(feature = "influxdb2")]
+    {
+        for backend in config.influxdb2.iter() {
+            receivers.push(Box::new(Influxdb2Receiver::new(backend)));
+        }
     }
-    for backend in config.mqtt.iter() {
-        receivers.push(Box::new(MqttReceiver::new(backend)?));
+    #[cfg(feature = "mqtt")]
+    {
+        for backend in config.mqtt.iter() {
+            receivers.push(Box::new(MqttReceiver::new(backend)?));
+        }
     }
 
     let mut sinks = vec![];
