@@ -14,6 +14,8 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#![doc = include_str!("../README.md")]
+
 pub mod fields;
 #[cfg(feature = "influxdb2")]
 pub mod influxdb2;

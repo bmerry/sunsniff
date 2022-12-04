@@ -16,6 +16,7 @@
 
 use std::ops::Range;
 
+/// Type of quantity stored in a field
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FieldType {
     Charge,
@@ -28,19 +29,24 @@ pub enum FieldType {
     Voltage,
 }
 
+/// Static description of a field in the data
 #[derive(Debug)]
 pub struct Field<'a> {
     pub field_type: FieldType,
+    /// Byte offset within the TCP payload
     pub offset: usize,
     pub group: &'a str,
     pub name: &'a str,
     pub id: &'a str,
+    /// Amount by which to scale the raw integer value
     pub scale: f64,
+    /// Amount to add to the value, after scaling
     pub bias: f64,
     pub unit: &'a str,
 }
 
 impl<'a> Field<'a> {
+    /// Create a field representing power, with a custom name
     pub const fn power_name(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
         Field {
             field_type: FieldType::Power,
@@ -54,10 +60,12 @@ impl<'a> Field<'a> {
         }
     }
 
+    /// Create a field representing power
     pub const fn power(offset: usize, group: &'a str, id: &'a str) -> Self {
         Field::power_name(offset, group, "Power", id)
     }
 
+    /// Create a field representing voltage, with a custom name
     pub const fn voltage_name(offset: usize, group: &'a str, name: &'a str, id: &'a str, scale: f64) -> Self {
         Field {
             field_type: FieldType::Voltage,
@@ -71,10 +79,12 @@ impl<'a> Field<'a> {
         }
     }
 
+    /// Create a field representing voltage
     pub const fn voltage(offset: usize, group: &'a str, id: &'a str, scale: f64) -> Self {
         Field::voltage_name(offset, group, "Voltage", id, scale)
     }
 
+    /// Create a field representing current, with a custom name
     pub const fn current_name(offset: usize, group: &'a str, name: &'a str, id: &'a str, scale: f64) -> Self {
         Field {
             field_type: FieldType::Current,
@@ -88,10 +98,12 @@ impl<'a> Field<'a> {
         }
     }
 
+    /// Create a field representing current
     pub const fn current(offset: usize, group: &'a str, id: &'a str, scale: f64) -> Self {
         Field::current_name(offset, group, "Current", id, scale)
     }
 
+    /// Create a field representing temperature, with a custom name
     pub const fn temperature_name(
         offset: usize,
         group: &'a str,
@@ -110,10 +122,12 @@ impl<'a> Field<'a> {
         }
     }
 
+    /// Create a field representing temperature
     pub const fn temperature(offset: usize, group: &'a str, id: &'a str) -> Self {
         Field::temperature_name(offset, group, "Temperature", id)
     }
 
+    /// Create a field representing frequency
     pub const fn frequency(offset: usize, group: &'a str, id: &'a str) -> Self {
         Field {
             field_type: FieldType::Frequency,
@@ -127,6 +141,7 @@ impl<'a> Field<'a> {
         }
     }
 
+    /// Create a field representing energy
     pub const fn energy(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
         // TODO: these are probably 32-bit values, but more investigation is
         // needed to figure out where the high bits live.
@@ -142,6 +157,7 @@ impl<'a> Field<'a> {
         }
     }
 
+    /// Create a field representing charge
     pub const fn charge(offset: usize, group: &'a str, name: &'a str, id: &'a str) -> Self {
         Field {
             field_type: FieldType::Charge,
@@ -155,6 +171,7 @@ impl<'a> Field<'a> {
         }
     }
 
+    /// Create a field representing state of charge
     pub const fn state_of_charge(offset: usize, group: &'a str, id: &'a str) -> Self {
         Field {
             field_type: FieldType::StateOfCharge,
@@ -169,10 +186,15 @@ impl<'a> Field<'a> {
     }
 }
 
+/// Expected length of the packet (TCP payload)
 pub const MAGIC_LENGTH: usize = 292;
-pub const MAGIC_HEADER: u8 = 0xa5; // First byte in the packet
+/// Expected first byte of the packet
+pub const MAGIC_HEADER: u8 = 0xa5;
+/// Offsets containing the inverter serial number
 pub const SERIAL_RANGE: Range<usize> = 11..21;
+/// Offset at which the timestamp is located
 pub const DATETIME_OFFSET: usize = 37;
+/// Fields found in each packet
 pub const FIELDS: &[Field] = &[
     Field::energy(70, "Battery", "Total charge", "battery_charge_total"),
     Field::energy(74, "Battery", "Total discharge", "battery_discharge_total"),

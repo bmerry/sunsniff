@@ -14,22 +14,31 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+//! Trait to be implemented by receiver plugins
+
 use async_trait::async_trait;
 use futures::channel::mpsc::UnboundedReceiver;
 use std::sync::Arc;
 
 use super::fields::Field;
 
+/// A set of values associated with all fields
 #[derive(Debug)]
 pub struct Update<'a> {
-    pub timestamp: i64, // Nanoseconds since UNIX epoch
+    /// Nanoseconds since UNIX epoch
+    pub timestamp: i64,
+    /// Inverter serial number
     pub serial: String,
+    /// Fields contained in the update
     pub fields: &'a [Field<'a>],
+    /// Values for the fields in `fields` (with the same length)
     pub values: Vec<f64>,
 }
 
+/// Trait to be implemented by receiver plugins
 #[async_trait]
 pub trait Receiver {
+    /// Run forever, receiving a stream of updates
     async fn run<'a>(&mut self, receiver: UnboundedReceiver<Arc<Update<'a>>>);
 }
 

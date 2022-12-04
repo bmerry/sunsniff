@@ -42,6 +42,8 @@ struct Args {
     config_file: PathBuf,
 }
 
+/// Structure corresponding to the `[pcap]` section of the configuration file.
+/// It is constructed from the config file by serde.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PcapConfig {
@@ -52,6 +54,8 @@ struct PcapConfig {
     timezone: Tz,
 }
 
+/// Structure corresponding to the configuration file. It is constructured
+/// from the config file by serde.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Config {
@@ -68,6 +72,14 @@ struct Codec {
     pub tz: Tz,
 }
 
+/// Extract the timestamp from the packet.
+///
+/// The timestamp consists of YY-MM-DD HH:MM:SS in 6 one-byte fields, with
+/// the year relative to 2000. It is in local time, so needs to be combined
+/// with the timestamp.
+///
+/// If the timestamp is an invalid time, or is invalid or ambiguous for the
+/// time zone, returns `None`.
 fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
     let dt = NaiveDate::from_ymd_opt(
         payload[fields::DATETIME_OFFSET] as i32 + 2000,
@@ -89,6 +101,7 @@ fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
 impl PacketCodec for Codec {
     type Item = Option<Arc<Update<'static>>>;
 
+    /// Decode a single packet
     fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
         if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
             if sliced.payload.len() == fields::MAGIC_LENGTH
@@ -121,6 +134,11 @@ impl PacketCodec for Codec {
     }
 }
 
+/// Top-level execution. Receive updates from a stream and distribute them to
+/// multiple receivers.
+///
+/// This is generic over the stream type so that it can support both live
+/// capture and pcap files.
 async fn run<S: Stream<Item = Result<<Codec as PacketCodec>::Item, pcap::Error>> + Unpin>(
     stream: &mut S,
     sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
