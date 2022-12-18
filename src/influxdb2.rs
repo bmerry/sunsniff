@@ -20,6 +20,7 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::stream::{self, StreamExt};
 use influxdb2::models::DataPoint;
 use influxdb2::Client;
+use influxdb2::models::health::Status;
 use log::{info, warn};
 use serde::Deserialize;
 use std::iter::zip;
@@ -34,8 +35,27 @@ pub struct Influxdb2Receiver {
 }
 
 impl Influxdb2Receiver {
-    pub fn new(config: &Config) -> Self {
+    pub async fn new(config: &Config) -> Self {
         let client = Client::new(&config.host, &config.org, &config.token);
+        match client.health().await {
+            Ok(health_check) => {
+                if health_check.status == Status::Fail {
+                    match health_check.message {
+                        Some(ref message) => {
+                            warn!("Influxdb server is unhealthy: {}", message);
+                        }
+                        None => {
+                            warn!("Influxdb server is unhealthy");
+                        }
+                    }
+                } else {
+                    info!("Successfully connected to Influxdb server at {}", &config.host);
+                }
+            }
+            Err(err) => {
+                warn!("Could not connect to Influxdb server: {}", err);
+            }
+        }
         // TODO: Warn if we can't connect to the server or it is unhealthy
         Self {
             client,

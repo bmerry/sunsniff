@@ -56,7 +56,7 @@ impl<'a> Field<'a> {
             id,
             scale: 1.0,
             bias: 0.0,
-            unit: "W"
+            unit: "W",
         }
     }
 
@@ -66,7 +66,13 @@ impl<'a> Field<'a> {
     }
 
     /// Create a field representing voltage, with a custom name
-    pub const fn voltage_name(offset: usize, group: &'a str, name: &'a str, id: &'a str, scale: f64) -> Self {
+    pub const fn voltage_name(
+        offset: usize,
+        group: &'a str,
+        name: &'a str,
+        id: &'a str,
+        scale: f64,
+    ) -> Self {
         Field {
             field_type: FieldType::Voltage,
             offset,
@@ -75,7 +81,7 @@ impl<'a> Field<'a> {
             id,
             scale,
             bias: 0.0,
-            unit: "V"
+            unit: "V",
         }
     }
 
@@ -85,7 +91,13 @@ impl<'a> Field<'a> {
     }
 
     /// Create a field representing current, with a custom name
-    pub const fn current_name(offset: usize, group: &'a str, name: &'a str, id: &'a str, scale: f64) -> Self {
+    pub const fn current_name(
+        offset: usize,
+        group: &'a str,
+        name: &'a str,
+        id: &'a str,
+        scale: f64,
+    ) -> Self {
         Field {
             field_type: FieldType::Current,
             offset,
@@ -94,7 +106,7 @@ impl<'a> Field<'a> {
             id,
             scale,
             bias: 0.0,
-            unit: "A"
+            unit: "A",
         }
     }
 
@@ -118,7 +130,7 @@ impl<'a> Field<'a> {
             id,
             scale: 0.1,
             bias: -100.0,
-            unit: "°C"
+            unit: "°C",
         }
     }
 
@@ -137,7 +149,7 @@ impl<'a> Field<'a> {
             id,
             scale: 0.01,
             bias: 0.0,
-            unit: "Hz"
+            unit: "Hz",
         }
     }
 
@@ -153,7 +165,7 @@ impl<'a> Field<'a> {
             id,
             scale: 0.1,
             bias: 0.0,
-            unit: "kWh"
+            unit: "kWh",
         }
     }
 
@@ -167,7 +179,7 @@ impl<'a> Field<'a> {
             id,
             scale: 1.0,
             bias: 0.0,
-            unit: "Ah"
+            unit: "Ah",
         }
     }
 
@@ -181,7 +193,7 @@ impl<'a> Field<'a> {
             id,
             scale: 1.0,
             bias: 0.0,
-            unit: "%"
+            unit: "%",
         }
     }
 }
@@ -226,8 +238,20 @@ pub const FIELDS: &[Field] = &[
     Field::current(258, "Battery", "battery_current", 0.01),
     Field::frequency(260, "Load", "load_frequency"), // Might also be 262
     Field::voltage_name(276, "BMS", "Charge Voltage", "bms_charge_voltage", 0.01),
-    Field::current_name(280, "BMS", "Charge Limit Current", "bms_charge_limit_current", 1.0),
-    Field::current_name(282, "BMS", "Discharge Limit Current", "bms_discharge_limit_current", 1.0),
+    Field::current_name(
+        280,
+        "BMS",
+        "Charge Limit Current",
+        "bms_charge_limit_current",
+        1.0,
+    ),
+    Field::current_name(
+        282,
+        "BMS",
+        "Discharge Limit Current",
+        "bms_discharge_limit_current",
+        1.0,
+    ),
     Field::voltage(286, "BMS", "bms_voltage", 0.01),
     Field::current(288, "BMS", "bms_current", 1.0),
     Field::temperature(290, "BMS", "bms_temperature"),
