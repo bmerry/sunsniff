@@ -33,7 +33,9 @@ If you want to cross-compile:
 
 I had problems because the resulting binary needed a newer glibc than the host
 I was targeting. To build a static binary, set the environment variable
-`RUSTFLAGS` to `-C target-feature=+crt-static -lpcap`.
+`RUSTFLAGS` to `-C target-feature=+crt-static -lpcap`. I also found that DNS
+wasn't working with glibc, so I ended up using a target of
+`armv7-unknown-linux-musleabihf` instead.
 
 ## Configuration
 
