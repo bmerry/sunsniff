@@ -28,15 +28,15 @@ lto = true
 
 [package.metadata.cross.build]
 pre-build = [
-    "apt-get update && apt-get install -y flex bison dpkg-dev",
-    """cd /tmp && \
-    curl https://www.tcpdump.org/release/libpcap-1.10.1.tar.gz | tar -zx && \
-    cd libpcap-1.10.1 && \
-    arch="$(dpkg-architecture -A $CROSS_DEB_ARCH -q DEB_TARGET_GNU_TYPE)"
-    ./configure --host "$arch" --disable-shared LDFLAGS="-static" && \
-    make && \
-    make install \
-    """
+    'set -e',
+    'apt-get update && apt-get install -y flex bison dpkg-dev',
+    'cd /tmp',
+    'curl https://www.tcpdump.org/release/libpcap-1.10.1.tar.gz | tar -zx',
+    'cd libpcap-1.10.1',
+    'arch="$(dpkg-architecture -A $CROSS_DEB_ARCH -q DEB_TARGET_GNU_TYPE)"',
+    './configure --host "$arch" --disable-shared LDFLAGS="-static"',
+    'make',
+    'make install'
 ]
 
 [features]
