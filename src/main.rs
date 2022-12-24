@@ -17,7 +17,7 @@
 use chrono::{DateTime, LocalResult, NaiveDate};
 use chrono_tz::Tz;
 use clap::Parser;
-use etherparse::SlicedPacket;
+use etherparse::{PacketBuilder, SlicedPacket};
 use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
@@ -27,6 +27,7 @@ use pcap::{Capture, Device, Packet, PacketCodec};
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
+use uapi;
 
 use sunsniff::fields::{self, FIELDS};
 #[cfg(feature = "influxdb2")]
@@ -98,6 +99,38 @@ fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
     }
 }
 
+fn tcp_reset(packet: &SlicedPacket) -> uapi::Result<()> {
+    if let Some(etherparse::InternetSlice::Ipv4(ref orig_ip_header, _)) = packet.ip {
+        if let Some(etherparse::TransportSlice::Tcp(ref orig_tcp_header)) = packet.transport {
+            let builder = PacketBuilder::ipv4(
+                orig_ip_header.destination(), // source IP address
+                orig_ip_header.source(),      // destination IP address
+                63,
+            )
+            .tcp(
+                orig_tcp_header.destination_port(),      // source port
+                orig_tcp_header.source_port(),           // destination port
+                orig_tcp_header.acknowledgment_number(), // seq number
+                1,                                       // window size
+            )
+            .rst();
+            let mut data = vec![];
+            let payload = [];
+            builder.write(&mut data, &payload).unwrap();
+            let sock = uapi::socket(uapi::c::AF_INET, uapi::c::SOCK_RAW, uapi::c::IPPROTO_RAW)?;
+            let mut addr = uapi::pod_zeroed::<uapi::c::sockaddr_in>();
+            addr.sin_family = uapi::c::AF_INET as u16;
+            addr.sin_port = orig_tcp_header.source_port().to_be();
+            addr.sin_addr.s_addr = u32::from_ne_bytes(orig_ip_header.source());
+            // TODO: ideally should be non-blocking, but in reality it's unlikely
+            // to block on a fresh socket
+            uapi::sendto(sock.raw(), data.as_slice(), 0, &addr)?;
+            info!("Sent TCP reset");
+        }
+    }
+    Ok(())
+}
+
 impl PacketCodec for Codec {
     type Item = Option<Arc<Update<'static>>>;
 
@@ -128,6 +161,8 @@ impl PacketCodec for Codec {
                     values.push(value);
                 }
                 let update = Update::new(dt.timestamp_nanos(), serial, FIELDS, values);
+
+                tcp_reset(&sliced).unwrap(); // TODO: handle errors
                 return Some(Arc::new(update));
             }
         }
