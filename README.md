@@ -54,6 +54,12 @@ fields:
   memory, so it should not be used with very large files.
 - `timezone` (required): The timezone name used by the inverter. This is used
   to convert the timestamps to UTC.
+- `tcp_reset` (optional): If set to `true`, the inverter's TCP connection
+  will be reset after each update is received. This seems to trick it into
+  sending updates more frequently (it seems to alternate randomly between 1 and
+  2 minutes, instead of the default 5 minutes). It's not enabled by default
+  because it will potentially interfere with setting options or deploying
+  firmware updates.
 
 I have the following setup:
 ```

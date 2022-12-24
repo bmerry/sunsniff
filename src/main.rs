@@ -22,7 +22,7 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use futures::try_join;
-use log::info;
+use log::{info, warn};
 use pcap::{Capture, Device, Packet, PacketCodec};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -53,6 +53,8 @@ struct PcapConfig {
     file: bool,
     filter: Option<String>,
     timezone: Tz,
+    #[serde(default)]
+    tcp_reset: bool,
 }
 
 /// Structure corresponding to the configuration file. It is constructured
@@ -71,6 +73,7 @@ struct Config {
 
 struct Codec {
     pub tz: Tz,
+    pub tcp_reset: bool,
 }
 
 /// Extract the timestamp from the packet.
@@ -125,7 +128,6 @@ fn tcp_reset(packet: &SlicedPacket) -> uapi::Result<()> {
             // TODO: ideally should be non-blocking, but in reality it's unlikely
             // to block on a fresh socket
             uapi::sendto(sock.raw(), data.as_slice(), 0, &addr)?;
-            info!("Sent TCP reset");
         }
     }
     Ok(())
@@ -162,7 +164,12 @@ impl PacketCodec for Codec {
                 }
                 let update = Update::new(dt.timestamp_nanos(), serial, FIELDS, values);
 
-                tcp_reset(&sliced).unwrap(); // TODO: handle errors
+                if self.tcp_reset {
+                    match tcp_reset(&sliced) {
+                        Ok(()) => { info!("Sent TCP reset packet"); },
+                        Err(err) => { warn!("Error sending TCP reset packet: {:?}", err); },
+                    }
+                }
                 return Some(Arc::new(update));
             }
         }
@@ -230,6 +237,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: better handling of errors from receivers
     let codec = Codec {
         tz: config.pcap.timezone,
+        tcp_reset: config.pcap.tcp_reset,
     };
     if config.pcap.file {
         let mut cap = Capture::from_file(&config.pcap.device)?;
