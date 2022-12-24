@@ -166,8 +166,12 @@ impl PacketCodec for Codec {
 
                 if self.tcp_reset {
                     match tcp_reset(&sliced) {
-                        Ok(()) => { info!("Sent TCP reset packet"); },
-                        Err(err) => { warn!("Error sending TCP reset packet: {:?}", err); },
+                        Ok(()) => {
+                            info!("Sent TCP reset packet");
+                        }
+                        Err(err) => {
+                            warn!("Error sending TCP reset packet: {:?}", err);
+                        }
                     }
                 }
                 return Some(Arc::new(update));
