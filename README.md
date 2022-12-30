@@ -137,6 +137,13 @@ TODO:
 
 ## Changelog
 
+### 0.1.2
+
+- Attempt to connect to InfluxDB on startup and show a warning if it's not
+  reachable.
+- Bump versions of dependencies (this seems to fix InfluxDB with TLS).
+- Improve documentation.
+
 ### 0.1.1
 
 Add more fields.
