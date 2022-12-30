@@ -14,25 +14,20 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-use chrono::{DateTime, LocalResult, NaiveDate};
-use chrono_tz::Tz;
 use clap::Parser;
-use etherparse::SlicedPacket;
 use futures::channel::mpsc::UnboundedSender;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use futures::try_join;
-use log::info;
-use pcap::{Capture, Device, Packet, PacketCodec};
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use sunsniff::fields::{self, FIELDS};
 #[cfg(feature = "influxdb2")]
 use sunsniff::influxdb2::Influxdb2Receiver;
 #[cfg(feature = "mqtt")]
 use sunsniff::mqtt::MqttReceiver;
+use sunsniff::pcap::PcapConfig;
 use sunsniff::receiver::{Receiver, Update};
 
 #[derive(Debug, Parser)]
@@ -40,18 +35,6 @@ use sunsniff::receiver::{Receiver, Update};
 struct Args {
     #[clap()]
     config_file: PathBuf,
-}
-
-/// Structure corresponding to the `[pcap]` section of the configuration file.
-/// It is constructed from the config file by serde.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PcapConfig {
-    device: String,
-    #[serde(default)]
-    file: bool,
-    filter: Option<String>,
-    timezone: Tz,
 }
 
 /// Structure corresponding to the configuration file. It is constructured
@@ -68,80 +51,10 @@ struct Config {
     mqtt: Vec<sunsniff::mqtt::Config>,
 }
 
-struct Codec {
-    pub tz: Tz,
-}
-
-/// Extract the timestamp from the packet.
-///
-/// The timestamp consists of YY-MM-DD HH:MM:SS in 6 one-byte fields, with
-/// the year relative to 2000. It is in local time, so needs to be combined
-/// with the timestamp.
-///
-/// If the timestamp is an invalid time, or is invalid or ambiguous for the
-/// time zone, returns `None`.
-fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
-    let dt = NaiveDate::from_ymd_opt(
-        payload[fields::DATETIME_OFFSET] as i32 + 2000,
-        payload[fields::DATETIME_OFFSET + 1] as u32,
-        payload[fields::DATETIME_OFFSET + 2] as u32,
-    )?
-    .and_hms_opt(
-        payload[fields::DATETIME_OFFSET + 3] as u32,
-        payload[fields::DATETIME_OFFSET + 4] as u32,
-        payload[fields::DATETIME_OFFSET + 5] as u32,
-    )?
-    .and_local_timezone(tz);
-    match dt {
-        LocalResult::Single(x) => Some(x),
-        _ => None, // TODO: what to do with ambiguous times - try to guess based on history?
-    }
-}
-
-impl PacketCodec for Codec {
-    type Item = Option<Arc<Update<'static>>>;
-
-    /// Decode a single packet
-    fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
-        if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
-            if sliced.payload.len() == fields::MAGIC_LENGTH
-                && sliced.payload[0] == fields::MAGIC_HEADER
-            {
-                let dt = match parse_timestamp(sliced.payload, self.tz) {
-                    Some(x) => x,
-                    None => {
-                        return None; // Parse error means it's probably not the packet we expected
-                    }
-                };
-                let serial =
-                    std::str::from_utf8(&sliced.payload[fields::SERIAL_RANGE]).unwrap_or("unknown");
-                info!(
-                    "Received packet with timestamp {:?} for inverter {}",
-                    dt, serial
-                );
-                let mut values = vec![];
-                for field in FIELDS.iter() {
-                    let bytes = &sliced.payload[field.offset..field.offset + 2];
-                    let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
-                    let value = i16::from_be_bytes(*bytes);
-                    let value = (value as f64) * field.scale + field.bias;
-                    values.push(value);
-                }
-                let update = Update::new(dt.timestamp_nanos(), serial, FIELDS, values);
-                return Some(Arc::new(update));
-            }
-        }
-        None
-    }
-}
-
 /// Top-level execution. Receive updates from a stream and distribute them to
 /// multiple receivers.
-///
-/// This is generic over the stream type so that it can support both live
-/// capture and pcap files.
-async fn run<S: Stream<Item = Result<<Codec as PacketCodec>::Item, pcap::Error>> + Unpin>(
-    stream: &mut S,
+async fn run(
+    stream: &mut (dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin),
     sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
     while let Some(item) = stream.next().await {
@@ -186,40 +99,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         sinks.push(sink);
     }
 
-    let base_filter = "tcp";
-    let filter = match &config.pcap.filter {
-        Some(expr) => format!("({}) and ({})", base_filter, expr),
-        None => String::from(base_filter),
-    };
-
     // TODO: better handling of errors from receivers
-    let codec = Codec {
-        tz: config.pcap.timezone,
-    };
-    if config.pcap.file {
-        let mut cap = Capture::from_file(&config.pcap.device)?;
-        cap.filter(filter.as_str(), true)?;
-        cap.set_datalink(pcap::Linktype::ETHERNET)?;
-        /* cap.stream doesn't work on files. This is a somewhat hacky
-         * workaround: it's probably going to load all the packets into
-         * the sinks at once before giving them a chance to run.
-         */
-        let mut stream = futures::stream::iter(cap.iter(codec));
-        try_join!(
-            run(&mut stream, &mut sinks),
-            futures.collect::<Vec<_>>().map(Ok)
-        )?;
-    } else {
-        let device = Device::from(config.pcap.device.as_str());
-        let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
-        let mut cap = cap.setnonblock()?;
-        cap.filter(filter.as_str(), true)?;
-        cap.set_datalink(pcap::Linktype::ETHERNET)?;
-        let mut stream = cap.stream(codec)?;
-        try_join!(
-            run(&mut stream, &mut sinks),
-            futures.collect::<Vec<_>>().map(Ok)
-        )?;
-    }
+    let mut stream = sunsniff::pcap::create_stream(&config.pcap)?;
+    try_join!(
+        run(&mut stream, &mut sinks),
+        futures.collect::<Vec<_>>().map(Ok)
+    )?;
     Ok(())
 }

@@ -21,4 +21,5 @@ pub mod fields;
 pub mod influxdb2;
 #[cfg(feature = "mqtt")]
 pub mod mqtt;
+pub mod pcap;
 pub mod receiver;

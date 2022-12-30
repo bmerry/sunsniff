@@ -18,9 +18,9 @@ use async_std::task;
 use async_trait::async_trait;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::stream::{self, StreamExt};
+use influxdb2::models::health::Status;
 use influxdb2::models::DataPoint;
 use influxdb2::Client;
-use influxdb2::models::health::Status;
 use log::{info, warn};
 use serde::Deserialize;
 use std::iter::zip;
@@ -49,7 +49,10 @@ impl Influxdb2Receiver {
                         }
                     }
                 } else {
-                    info!("Successfully connected to Influxdb server at {}", &config.host);
+                    info!(
+                        "Successfully connected to Influxdb server at {}",
+                        &config.host
+                    );
                 }
             }
             Err(err) => {
