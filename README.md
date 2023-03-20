@@ -137,6 +137,11 @@ TODO:
 
 ## Changelog
 
+### 0.2
+
+- Add modbus support.
+- Rename `pv_voltage 1` to `pv_voltage_1` (the space was a typo).
+
 ### 0.1.2
 
 - Attempt to connect to InfluxDB on startup and show a warning if it's not

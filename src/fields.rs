@@ -218,7 +218,7 @@ pub const FIELDS: &[Field] = &[
     Field::temperature_name(108, "Inverter", "AC Temperature", "inverter_temperature_ac"),
     Field::energy(118, "PV", "Total production", "pv_production_total"),
     Field::charge(140, "Battery", "Capacity", "battery_capacity"),
-    Field::voltage_name(144, "PV", "Voltage 1", "pv_voltage 1", 0.1),
+    Field::voltage_name(144, "PV", "Voltage 1", "pv_voltage_1", 0.1),
     Field::current_name(146, "PV", "Current 1", "pv_current_1", 0.1),
     Field::voltage_name(148, "PV", "Voltage 2", "pv_voltage_2", 0.1),
     Field::current_name(150, "PV", "Current 2", "pv_current_2", 0.1),
