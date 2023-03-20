@@ -56,7 +56,7 @@ fields:
   to convert the timestamps to UTC.
 
 I have the following setup:
-```
+```toml
 [pcap]
 device = "br0"
 filter = "src host 192.168.0.21"
@@ -74,7 +74,7 @@ The readings are inserted into an Influxdb bucket. Note that the schema is
 **not final**.
 
 The configuration section looks like this:
-```
+```toml
 [[influxdb2]]
 host = "http://192.168.0.123:8086/"
 org = "my_org"
@@ -102,7 +102,7 @@ discovery information, but this doesn't prevent other use cases. You will need
 to install an MQTT broker (Home Assistant supports Mosquitto as an add-on) and
 configure Home Assistant to use it. A typical configuration then looks like
 this:
-```
+```toml
 [[mqtt]]
 url = "mqtt://192.168.0.123:1883"
 username = "my_username"
