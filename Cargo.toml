@@ -44,6 +44,10 @@ default = ["influxdb2", "mqtt", "modbus"]
 mqtt = ["dep:mqtt-async-client", "dep:serde_json"]
 modbus = ["dep:serde_with", "dep:tokio-modbus", "dep:tokio-serial"]
 
+[build-dependencies]
+csv = "1.2.1"
+serde = { version = "1.0.147", features = ["derive"] }
+
 [dependencies]
 async-std = "1.12.0"
 async-trait = "0.1.57"
