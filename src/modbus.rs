@@ -16,11 +16,13 @@
 
 use futures::channel::mpsc;
 use futures::prelude::*;
+use log::{error, info};
 use serde::Deserialize;
 use serde_with::serde_as;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::MissedTickBehavior;
+use tokio_modbus::client::Context;
 use tokio_modbus::prelude::Reader;
 use tokio_modbus::slave::Slave;
 
@@ -48,7 +50,30 @@ fn default_modbus_id() -> u8 {
     1
 }
 
-pub fn create_stream(
+async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
+    let mut values = Vec::with_capacity(FIELDS.len());
+    for (field, regs) in FIELDS.iter().zip(REGISTERS.iter()) {
+        let mut raw: i64 = 0;
+        let mut shift: u32 = 0;
+        for reg in regs.iter() {
+            // TODO: error handling
+            let reg_value = ctx.read_holding_registers(*reg, 1).await?[0];
+            raw += (reg_value as i64) << shift;
+            shift += 16;
+        }
+        let wrap: i64 = 1i64 << (shift - 1);
+        // Convert to signed (TODO: most registers are actually unsigned)
+        if raw >= wrap {
+            raw -= 2 * wrap;
+        }
+        // TODO: optimise this search (ideally at compile time)
+        let value = (raw as f64) * field.scale + field.bias;
+        values.push(value);
+    }
+    Ok(values)
+}
+
+pub async fn create_stream(
     config: &ModbusConfig,
 ) -> Result<Box<dyn Stream<Item = UpdateItem> + Unpin>, Box<dyn std::error::Error>> {
     let serial_builder = tokio_serial::new(&config.device, config.baud);
@@ -56,48 +81,32 @@ pub fn create_stream(
     let (mut sender, receiver) = mpsc::channel(1);
     let interval = config.interval;
     let modbus_id = config.modbus_id;
+    let mut ctx = tokio_modbus::client::rtu::connect_slave(serial_stream, Slave(modbus_id)).await?;
+    let serial_words = ctx.read_holding_registers(3, 5).await?;
+    let mut serial_bytes = [0u8; 10];
+    for i in 0..5 {
+        let bytes = serial_words[i].to_be_bytes();
+        serial_bytes[2 * i] = bytes[0];
+        serial_bytes[2 * i + 1] = bytes[1];
+    }
+    let serial = std::str::from_utf8(&serial_bytes)?.to_owned();
     tokio::spawn(async move {
-        // TODO: error handling
-        let mut ctx = tokio_modbus::client::rtu::connect_slave(serial_stream, Slave(modbus_id))
-            .await
-            .unwrap();
         let mut interval = tokio::time::interval(interval);
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
-        // TODO: error handling
-        let serial_words = ctx.read_holding_registers(3, 5).await.unwrap();
-        let mut serial_bytes = [0u8; 10];
-        for i in 0..5 {
-            let bytes = serial_words[i].to_be_bytes();
-            serial_bytes[2 * i] = bytes[0];
-            serial_bytes[2 * i + 1] = bytes[1];
-        }
-        // TODO: error handling
-        let serial = std::str::from_utf8(&serial_bytes).unwrap();
         loop {
             interval.tick().await;
-            let mut values = Vec::with_capacity(FIELDS.len());
-            for (field, regs) in FIELDS.iter().zip(REGISTERS.iter()) {
-                let mut raw: i64 = 0;
-                let mut shift: u32 = 0;
-                for reg in regs.iter() {
-                    // TODO: error handling
-                    let reg_value = ctx.read_holding_registers(*reg, 1).await.unwrap()[0];
-                    raw += (reg_value as i64) << shift;
-                    shift += 16;
+            match read_values(&mut ctx).await {
+                Err(err) => {
+                    error!("Failed to read values from modbus: {err:?}");
                 }
-                let wrap: i64 = 1i64 << (shift - 1);
-                // Convert to signed (TODO: most registers are actually unsigned)
-                if raw >= wrap {
-                    raw -= 2 * wrap;
+                Ok(values) => {
+                    info!("Received a set of values from modbus");
+                    let now = chrono::Utc::now();
+                    let update = Update::new(now.timestamp_nanos(), &serial, FIELDS, values);
+                    // TODO: Handle error from send
+                    sender.send(Ok(Some(Arc::new(update)))).await.unwrap();
                 }
-                // TODO: optimise this search (ideally at compile time)
-                let value = (raw as f64) * field.scale + field.bias;
-                values.push(value);
             }
-            let now = chrono::Utc::now();
-            let update = Update::new(now.timestamp_nanos(), serial, FIELDS, values);
-            // TODO: Handle error from send
-            sender.send(Ok(Some(Arc::new(update)))).await.unwrap();
         }
     });
     Ok(Box::new(receiver))

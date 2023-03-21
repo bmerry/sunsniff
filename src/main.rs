@@ -114,7 +114,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stream = match &config.input {
         InputConfig::Pcap(pcap_config) => sunsniff::pcap::create_stream(pcap_config)?,
         #[cfg(feature = "modbus")]
-        InputConfig::Modbus(modbus_config) => sunsniff::modbus::create_stream(modbus_config)?,
+        InputConfig::Modbus(modbus_config) => {
+            sunsniff::modbus::create_stream(modbus_config).await?
+        }
     };
     try_join!(
         run(&mut stream, &mut sinks),
