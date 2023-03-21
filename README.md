@@ -141,6 +141,9 @@ TODO:
 
 - Add modbus support.
 - Rename `pv_voltage 1` to `pv_voltage_1` (the space was a typo).
+- Change the offsets used for `grid_power`, `inverter_power`, `load_power`.
+  This makes no difference on my inverter, but may give you more correct
+  values if you have additional connections.
 
 ### 0.1.2
 
