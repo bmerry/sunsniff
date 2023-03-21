@@ -24,7 +24,6 @@ use tokio::time::MissedTickBehavior;
 use tokio_modbus::prelude::Reader;
 use tokio_modbus::slave::Slave;
 
-use crate::fields::FIELDS;
 use crate::receiver::Update;
 
 /// Structure corresponding to the `[modbus]` section of the configuration file.
@@ -48,23 +47,6 @@ fn default_baud() -> u32 {
 fn default_modbus_id() -> u8 {
     1
 }
-
-static FIELD_MAP: &[(&'static str, &[u16])] = &[
-    ("battery_charge_total", &[72, 73]),
-    ("battery_discharge_total", &[74, 75]),
-    ("grid_import_total", &[78, 80]),
-    ("grid_frequency", &[79]),
-    ("grid_export_total", &[81, 82]),
-    ("load_consumption_total", &[85, 86]),
-    ("inverter_temperature_dc", &[90]),
-    ("inverter_temperature_ac", &[91]), // TODO: 91 is "radiator temperature" in kellerza/sunsynk
-    ("pv_production_total", &[96, 97]),
-    // TODO: battery_capacity?
-    ("pv_voltage_1", &[109]),
-    ("pv_current_1", &[110]),
-    ("pv_voltage_2", &[111]),
-    ("pv_current_2", &[112]),
-];
 
 pub fn create_stream(
     config: &ModbusConfig,
@@ -91,8 +73,8 @@ pub fn create_stream(
         let serial = std::str::from_utf8(&serial_bytes).unwrap();
         loop {
             interval.tick().await;
-            let mut values = vec![0.0; FIELDS.len()];
-            for (id, regs) in FIELD_MAP.iter() {
+            let mut values = Vec::with_capacity(FIELDS.len());
+            for (field, regs) in FIELDS.iter().zip(REGISTERS.iter()) {
                 let mut raw: i64 = 0;
                 let mut shift: u32 = 0;
                 for reg in regs.iter() {
@@ -107,10 +89,8 @@ pub fn create_stream(
                     raw -= 2 * wrap;
                 }
                 // TODO: optimise this search (ideally at compile time)
-                let pos = FIELDS.iter().position(|x| x.id == *id).unwrap();
-                let field = &FIELDS[pos];
                 let value = (raw as f64) * field.scale + field.bias;
-                values[pos] = value;
+                values.push(value);
             }
             let now = chrono::Utc::now();
             let update = Update::new(now.timestamp_nanos(), serial, FIELDS, values);
@@ -120,3 +100,5 @@ pub fn create_stream(
     });
     Ok(Box::new(receiver))
 }
+
+include!(concat!(env!("OUT_DIR"), "/modbus_fields.rs"));

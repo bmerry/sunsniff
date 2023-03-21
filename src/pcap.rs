@@ -21,10 +21,19 @@ use futures::prelude::*;
 use log::info;
 use pcap::{Capture, Device, Packet, PacketCodec};
 use serde::Deserialize;
+use std::ops::Range;
 use std::sync::Arc;
 
-use crate::fields::{self, FIELDS};
 use crate::receiver::Update;
+
+/// Expected length of the packet (TCP payload)
+const MAGIC_LENGTH: usize = 292;
+/// Expected first byte of the packet
+const MAGIC_HEADER: u8 = 0xa5;
+/// Offsets containing the inverter serial number
+const SERIAL_RANGE: Range<usize> = 11..21;
+/// Offset at which the timestamp is located
+const DATETIME_OFFSET: usize = 37;
 
 /// Structure corresponding to the `[pcap]` section of the configuration file.
 /// It is constructed from the config file by serde.
@@ -52,14 +61,14 @@ struct Codec {
 /// time zone, returns `None`.
 fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
     let dt = NaiveDate::from_ymd_opt(
-        payload[fields::DATETIME_OFFSET] as i32 + 2000,
-        payload[fields::DATETIME_OFFSET + 1] as u32,
-        payload[fields::DATETIME_OFFSET + 2] as u32,
+        payload[DATETIME_OFFSET] as i32 + 2000,
+        payload[DATETIME_OFFSET + 1] as u32,
+        payload[DATETIME_OFFSET + 2] as u32,
     )?
     .and_hms_opt(
-        payload[fields::DATETIME_OFFSET + 3] as u32,
-        payload[fields::DATETIME_OFFSET + 4] as u32,
-        payload[fields::DATETIME_OFFSET + 5] as u32,
+        payload[DATETIME_OFFSET + 3] as u32,
+        payload[DATETIME_OFFSET + 4] as u32,
+        payload[DATETIME_OFFSET + 5] as u32,
     )?
     .and_local_timezone(tz);
     match dt {
@@ -74,8 +83,8 @@ impl PacketCodec for Codec {
     /// Decode a single packet
     fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
         if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
-            if sliced.payload.len() == fields::MAGIC_LENGTH
-                && sliced.payload[0] == fields::MAGIC_HEADER
+            if sliced.payload.len() == MAGIC_LENGTH
+                && sliced.payload[0] == MAGIC_HEADER
             {
                 let dt = match parse_timestamp(sliced.payload, self.tz) {
                     Some(x) => x,
@@ -84,14 +93,14 @@ impl PacketCodec for Codec {
                     }
                 };
                 let serial =
-                    std::str::from_utf8(&sliced.payload[fields::SERIAL_RANGE]).unwrap_or("unknown");
+                    std::str::from_utf8(&sliced.payload[SERIAL_RANGE]).unwrap_or("unknown");
                 info!(
                     "Received packet with timestamp {:?} for inverter {}",
                     dt, serial
                 );
-                let mut values = vec![];
-                for field in FIELDS.iter() {
-                    let bytes = &sliced.payload[field.offset..field.offset + 2];
+                let mut values = Vec::with_capacity(FIELDS.len());
+                for (&offset, field) in OFFSETS.iter().zip(FIELDS.iter()) {
+                    let bytes = &sliced.payload[offset..offset + 2];
                     let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
                     let value = i16::from_be_bytes(*bytes);
                     let value = (value as f64) * field.scale + field.bias;
@@ -135,3 +144,5 @@ pub fn create_stream(
         Ok(Box::new(cap.stream(codec)?))
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/pcap_fields.rs"));

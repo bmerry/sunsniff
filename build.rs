@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::Path;
 
 /// Duplicate of crate::fields::FieldType
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 enum FieldType {
     Charge,
     Current,
@@ -20,7 +20,7 @@ enum FieldType {
 
 use FieldType::*;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Record {
     field_type: FieldType,
     group: String,
@@ -34,15 +34,11 @@ struct Record {
     reg2: Option<u16>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let out_dir = env::var_os("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("field_definitions.rs");
-    let mut reader = csv::Reader::from_reader(fs::File::open("fields.csv")?);
-    let mut writer = fs::File::create(dest_path)?;
-    writeln!(&mut writer, "/// Fields found in each packet")?;
-    writeln!(&mut writer, "pub const FIELDS: &[Field] = &[")?;
-    for result in reader.deserialize() {
-        let record: Record = result?;
+fn write_fields<'a, W>(w: &mut W, header: &str, records: impl Iterator<Item = &'a Record>) -> Result<(), Box<dyn Error>> where W: Write {
+    writeln!(w, "use crate::fields::{{Field, FieldType}};")?;
+    writeln!(w, "{header}")?;
+    writeln!(w, "const FIELDS: &[Field] = &[")?;
+    for record in records {
         let default_scale = match record.field_type {
             Charge | Power | StateOfCharge => Some(1.0),
             Energy | Temperature => Some(0.1),
@@ -64,10 +60,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             Voltage => "V",
         };
         let scale = record.scale.or(default_scale).unwrap();
-        if let Some(offset) = record.offset {
-            writeln!(&mut writer, r#"    Field {{
+        writeln!(w, r#"    Field {{
         field_type: FieldType::{:?},
-        offset: {offset},
         group: {:?},
         name: {:?},
         id: {:?},
@@ -75,10 +69,54 @@ fn main() -> Result<(), Box<dyn Error>> {
         bias: {bias:?},
         unit: {unit:?},
     }},"#, record.field_type, record.group, record.name, record.id)?;
+    }
+    writeln!(w, "];")?;
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let out_dir = env::var_os("OUT_DIR").unwrap();
+    let out_path = Path::new(&out_dir);
+    let pcap_path = out_path.join("pcap_fields.rs");
+    let modbus_path = out_path.join("modbus_fields.rs");
+    let mut reader = csv::Reader::from_reader(fs::File::open("fields.csv")?);
+
+    let mut pcap_records = vec![];
+    let mut pcap_offsets = vec![];
+    let mut modbus_records = vec![];
+    let mut modbus_regs = vec![];
+    for result in reader.deserialize() {
+        let record: Record = result?;
+        if let Some(offset) = (&record).offset {
+            pcap_records.push(record.clone());
+            pcap_offsets.push(offset);
+        }
+        if let Some(reg) = (&record).reg {
+            modbus_records.push(record.clone());
+            let mut regs = vec![reg];
+            if let Some(reg2) = (&record).reg2 {
+                regs.push(reg2);
+            }
+            modbus_regs.push(regs);
         }
     }
-    writeln!(&mut writer, "];")?;
-    drop(writer);
+
+    let mut pcap_writer = fs::File::create(pcap_path)?;
+    write_fields(&mut pcap_writer, "/// Fields found in each packet", pcap_records.iter())?;
+    writeln!(&mut pcap_writer, "/// Offsets of fields within packets")?;
+    writeln!(&mut pcap_writer, "const OFFSETS: &[usize] = &{:?};", pcap_offsets.as_slice())?;
+    drop(pcap_writer);
+
+    let mut modbus_writer = fs::File::create(modbus_path)?;
+    write_fields(&mut modbus_writer, "/// Fields retrieved by modbus protocol", modbus_records.iter())?;
+    writeln!(&mut modbus_writer, "/// Registers corresponding to fields")?;
+    writeln!(&mut modbus_writer, "const REGISTERS: &[&[u16]] = &[")?;
+    for regs in modbus_regs.into_iter() {
+        writeln!(&mut modbus_writer, "    &{:?},", regs.as_slice())?;
+    }
+    writeln!(&mut modbus_writer, "];")?;
+    drop(modbus_writer);
+
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=fields.csv");
     Ok(())
