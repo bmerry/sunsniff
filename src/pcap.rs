@@ -24,7 +24,7 @@ use serde::Deserialize;
 use std::ops::Range;
 use std::sync::Arc;
 
-use crate::receiver::Update;
+use crate::receiver::{Update, UpdateItem};
 
 /// Expected length of the packet (TCP payload)
 const MAGIC_LENGTH: usize = 292;
@@ -114,10 +114,7 @@ impl PacketCodec for Codec {
 
 pub fn create_stream(
     config: &PcapConfig,
-) -> Result<
-    Box<dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin>,
-    Box<dyn std::error::Error>,
-> {
+) -> Result<Box<dyn Stream<Item = UpdateItem> + Unpin>, Box<dyn std::error::Error>> {
     let base_filter = "tcp";
     let filter = match &config.filter {
         Some(expr) => format!("({}) and ({})", base_filter, expr),

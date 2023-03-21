@@ -1,4 +1,4 @@
-/* Copyright 2022 Bruce Merry
+/* Copyright 2022-2023 Bruce Merry
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -57,3 +57,5 @@ impl<'a> Update<'a> {
         }
     }
 }
+
+pub type UpdateItem = Result<Option<Arc<Update<'static>>>, pcap::Error>;

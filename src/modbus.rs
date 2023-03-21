@@ -24,7 +24,7 @@ use tokio::time::MissedTickBehavior;
 use tokio_modbus::prelude::Reader;
 use tokio_modbus::slave::Slave;
 
-use crate::receiver::Update;
+use crate::receiver::{Update, UpdateItem};
 
 /// Structure corresponding to the `[modbus]` section of the configuration file.
 #[serde_as]
@@ -50,10 +50,7 @@ fn default_modbus_id() -> u8 {
 
 pub fn create_stream(
     config: &ModbusConfig,
-) -> Result<
-    Box<dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin>,
-    Box<dyn std::error::Error>,
-> {
+) -> Result<Box<dyn Stream<Item = UpdateItem> + Unpin>, Box<dyn std::error::Error>> {
     let serial_builder = tokio_serial::new(&config.device, config.baud);
     let serial_stream = tokio_serial::SerialStream::open(&serial_builder)?;
     let (mut sender, receiver) = mpsc::channel(1);

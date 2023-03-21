@@ -30,7 +30,7 @@ use sunsniff::modbus::ModbusConfig;
 #[cfg(feature = "mqtt")]
 use sunsniff::mqtt::MqttReceiver;
 use sunsniff::pcap::PcapConfig;
-use sunsniff::receiver::{Receiver, Update};
+use sunsniff::receiver::{Receiver, Update, UpdateItem};
 
 #[derive(Debug, Parser)]
 #[clap(author, version)]
@@ -65,7 +65,7 @@ struct Config {
 /// Top-level execution. Receive updates from a stream and distribute them to
 /// multiple receivers.
 async fn run(
-    stream: &mut (dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin),
+    stream: &mut (dyn Stream<Item = UpdateItem> + Unpin),
     sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
     while let Some(item) = stream.next().await {

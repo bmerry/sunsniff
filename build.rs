@@ -98,14 +98,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut modbus_regs = vec![];
     for result in reader.deserialize() {
         let record: Record = result?;
-        if let Some(offset) = (&record).offset {
+        if let Some(offset) = record.offset {
             pcap_records.push(record.clone());
             pcap_offsets.push(offset);
         }
-        if let Some(reg) = (&record).reg {
+        if let Some(reg) = record.reg {
             modbus_records.push(record.clone());
             let mut regs = vec![reg];
-            if let Some(reg2) = (&record).reg2 {
+            if let Some(reg2) = record.reg2 {
                 regs.push(reg2);
             }
             modbus_regs.push(regs);
