@@ -68,11 +68,9 @@ async fn run(
     stream: &mut (dyn Stream<Item = UpdateItem> + Unpin),
     sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    while let Some(item) = stream.next().await {
-        if let Some(update) = item? {
-            for sink in sinks.iter_mut() {
-                sink.unbounded_send(Arc::clone(&update))?;
-            }
+    while let Some(update) = stream.next().await {
+        for sink in sinks.iter_mut() {
+            sink.unbounded_send(Arc::clone(&update))?;
         }
     }
     for sink in sinks.iter_mut() {

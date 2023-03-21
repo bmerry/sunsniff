@@ -26,7 +26,7 @@ use tokio_modbus::client::Context;
 use tokio_modbus::prelude::Reader;
 use tokio_modbus::slave::Slave;
 
-use crate::receiver::{Update, UpdateItem};
+use crate::receiver::{Update, UpdateStream};
 
 /// Structure corresponding to the `[modbus]` section of the configuration file.
 #[serde_as]
@@ -75,7 +75,7 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
 
 pub async fn create_stream(
     config: &ModbusConfig,
-) -> Result<Box<dyn Stream<Item = UpdateItem> + Unpin>, Box<dyn std::error::Error>> {
+) -> Result<UpdateStream, Box<dyn std::error::Error>> {
     let serial_builder = tokio_serial::new(&config.device, config.baud);
     let serial_stream = tokio_serial::SerialStream::open(&serial_builder)?;
     let (mut sender, receiver) = mpsc::channel(1);
@@ -104,12 +104,12 @@ pub async fn create_stream(
                     let now = chrono::Utc::now();
                     let update = Update::new(now.timestamp_nanos(), &serial, FIELDS, values);
                     // TODO: Handle error from send
-                    sender.send(Ok(Some(Arc::new(update)))).await.unwrap();
+                    sender.send(Arc::new(update)).await.unwrap();
                 }
             }
         }
     });
-    Ok(Box::new(receiver))
+    Ok(Box::pin(receiver))
 }
 
 include!(concat!(env!("OUT_DIR"), "/modbus_fields.rs"));

@@ -18,6 +18,8 @@
 
 use async_trait::async_trait;
 use futures::channel::mpsc::UnboundedReceiver;
+use futures::stream::Stream;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use super::fields::Field;
@@ -58,4 +60,5 @@ impl<'a> Update<'a> {
     }
 }
 
-pub type UpdateItem = Result<Option<Arc<Update<'static>>>, pcap::Error>;
+pub type UpdateItem = Arc<Update<'static>>;
+pub type UpdateStream = Pin<Box<dyn Stream<Item = UpdateItem>>>;

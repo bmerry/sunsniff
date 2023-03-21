@@ -18,13 +18,13 @@ use chrono::{DateTime, LocalResult, NaiveDate};
 use chrono_tz::Tz;
 use etherparse::SlicedPacket;
 use futures::prelude::*;
-use log::info;
+use log::{error, info};
 use pcap::{Capture, Device, Packet, PacketCodec};
 use serde::Deserialize;
 use std::ops::Range;
 use std::sync::Arc;
 
-use crate::receiver::{Update, UpdateItem};
+use crate::receiver::{Update, UpdateStream};
 
 /// Expected length of the packet (TCP payload)
 const MAGIC_LENGTH: usize = 292;
@@ -112,9 +112,19 @@ impl PacketCodec for Codec {
     }
 }
 
-pub fn create_stream(
-    config: &PcapConfig,
-) -> Result<Box<dyn Stream<Item = UpdateItem> + Unpin>, Box<dyn std::error::Error>> {
+async fn filter_fn(
+    item: Result<Option<Arc<Update<'static>>>, pcap::Error>,
+) -> Option<Arc<Update<'static>>> {
+    match item {
+        Ok(value) => value,
+        Err(err) => {
+            error!("Error from pcap: {err:?}");
+            None
+        }
+    }
+}
+
+pub fn create_stream(config: &PcapConfig) -> Result<UpdateStream, Box<dyn std::error::Error>> {
     let base_filter = "tcp";
     let filter = match &config.filter {
         Some(expr) => format!("({}) and ({})", base_filter, expr),
@@ -132,14 +142,16 @@ pub fn create_stream(
          * workaround: it's probably going to load all the packets into
          * the sinks at once before giving them a chance to run.
          */
-        Ok(Box::new(futures::stream::iter(cap.iter(codec))))
+        Ok(Box::pin(
+            futures::stream::iter(cap.iter(codec)).filter_map(filter_fn),
+        ))
     } else {
         let device = Device::from(config.device.as_str());
         let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
         let mut cap = cap.setnonblock()?;
         cap.filter(filter.as_str(), true)?;
         cap.set_datalink(pcap::Linktype::ETHERNET)?;
-        Ok(Box::new(cap.stream(codec)?))
+        Ok(Box::pin(cap.stream(codec)?.filter_map(filter_fn)))
     }
 }
 
