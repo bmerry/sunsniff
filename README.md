@@ -118,7 +118,8 @@ the service is running.
 ## Supported hardware
 
 So far I've only tested this with my personal setup. I'm hoping other devices
-will work too. If it works for you, please let me know.
+will work too. If it works for you, please let me know. Note that it's unlikely
+to work with the 3-phase inverters, as they use different registers.
 
 - Inverter: Sunsynk 5 kW (Sunsynk-5K-SG01LP1)
 - Dongle: unbranded Inteless dongle (it has red and green lights). Apparently
