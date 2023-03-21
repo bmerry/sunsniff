@@ -83,9 +83,7 @@ impl PacketCodec for Codec {
     /// Decode a single packet
     fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
         if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
-            if sliced.payload.len() == MAGIC_LENGTH
-                && sliced.payload[0] == MAGIC_HEADER
-            {
+            if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
                 let dt = match parse_timestamp(sliced.payload, self.tz) {
                     Some(x) => x,
                     None => {
@@ -116,7 +114,10 @@ impl PacketCodec for Codec {
 
 pub fn create_stream(
     config: &PcapConfig,
-) -> Result<Box<dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin>, Box<dyn std::error::Error>> {
+) -> Result<
+    Box<dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin>,
+    Box<dyn std::error::Error>,
+> {
     let base_filter = "tcp";
     let filter = match &config.filter {
         Some(expr) => format!("({}) and ({})", base_filter, expr),

@@ -34,7 +34,14 @@ struct Record {
     reg2: Option<u16>,
 }
 
-fn write_fields<'a, W>(w: &mut W, header: &str, records: impl Iterator<Item = &'a Record>) -> Result<(), Box<dyn Error>> where W: Write {
+fn write_fields<'a, W>(
+    w: &mut W,
+    header: &str,
+    records: impl Iterator<Item = &'a Record>,
+) -> Result<(), Box<dyn Error>>
+where
+    W: Write,
+{
     writeln!(w, "use crate::fields::{{Field, FieldType}};")?;
     writeln!(w, "{header}")?;
     writeln!(w, "const FIELDS: &[Field] = &[")?;
@@ -60,7 +67,9 @@ fn write_fields<'a, W>(w: &mut W, header: &str, records: impl Iterator<Item = &'
             Voltage => "V",
         };
         let scale = record.scale.or(default_scale).unwrap();
-        writeln!(w, r#"    Field {{
+        writeln!(
+            w,
+            r#"    Field {{
         field_type: FieldType::{:?},
         group: {:?},
         name: {:?},
@@ -68,7 +77,9 @@ fn write_fields<'a, W>(w: &mut W, header: &str, records: impl Iterator<Item = &'
         scale: {scale:?},
         bias: {bias:?},
         unit: {unit:?},
-    }},"#, record.field_type, record.group, record.name, record.id)?;
+    }},"#,
+            record.field_type, record.group, record.name, record.id
+        )?;
     }
     writeln!(w, "];")?;
     Ok(())
@@ -102,13 +113,25 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut pcap_writer = fs::File::create(pcap_path)?;
-    write_fields(&mut pcap_writer, "/// Fields found in each packet", pcap_records.iter())?;
+    write_fields(
+        &mut pcap_writer,
+        "/// Fields found in each packet",
+        pcap_records.iter(),
+    )?;
     writeln!(&mut pcap_writer, "/// Offsets of fields within packets")?;
-    writeln!(&mut pcap_writer, "const OFFSETS: &[usize] = &{:?};", pcap_offsets.as_slice())?;
+    writeln!(
+        &mut pcap_writer,
+        "const OFFSETS: &[usize] = &{:?};",
+        pcap_offsets.as_slice()
+    )?;
     drop(pcap_writer);
 
     let mut modbus_writer = fs::File::create(modbus_path)?;
-    write_fields(&mut modbus_writer, "/// Fields retrieved by modbus protocol", modbus_records.iter())?;
+    write_fields(
+        &mut modbus_writer,
+        "/// Fields retrieved by modbus protocol",
+        modbus_records.iter(),
+    )?;
     writeln!(&mut modbus_writer, "/// Registers corresponding to fields")?;
     writeln!(&mut modbus_writer, "const REGISTERS: &[&[u16]] = &[")?;
     for regs in modbus_regs.into_iter() {

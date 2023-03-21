@@ -14,8 +14,8 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-use futures::prelude::*;
 use futures::channel::mpsc;
+use futures::prelude::*;
 use serde::Deserialize;
 use serde_with::serde_as;
 use std::sync::Arc;
@@ -50,7 +50,10 @@ fn default_modbus_id() -> u8 {
 
 pub fn create_stream(
     config: &ModbusConfig,
-) -> Result<Box<dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin>, Box<dyn std::error::Error>> {
+) -> Result<
+    Box<dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin>,
+    Box<dyn std::error::Error>,
+> {
     let serial_builder = tokio_serial::new(&config.device, config.baud);
     let serial_stream = tokio_serial::SerialStream::open(&serial_builder)?;
     let (mut sender, receiver) = mpsc::channel(1);
@@ -58,7 +61,9 @@ pub fn create_stream(
     let modbus_id = config.modbus_id;
     tokio::spawn(async move {
         // TODO: error handling
-        let mut ctx = tokio_modbus::client::rtu::connect_slave(serial_stream, Slave(modbus_id)).await.unwrap();
+        let mut ctx = tokio_modbus::client::rtu::connect_slave(serial_stream, Slave(modbus_id))
+            .await
+            .unwrap();
         let mut interval = tokio::time::interval(interval);
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         // TODO: error handling
