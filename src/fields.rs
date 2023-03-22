@@ -40,3 +40,20 @@ pub struct Field<'a> {
     pub bias: f64,
     pub unit: &'a str,
 }
+
+impl<'a> Field<'a> {
+    pub fn from_u16s(&self, parts: impl IntoIterator<Item = u16>) -> f64 {
+        let mut raw: i64 = 0;
+        let mut shift: u32 = 0;
+        for part in parts {
+            raw += (part as i64) << shift;
+            shift += 16;
+        }
+        let wrap: i64 = 1i64 << (shift - 1);
+        // Convert to signed (TODO: most registers are actually unsigned)
+        if raw >= wrap {
+            raw -= 2 * wrap;
+        }
+        (raw as f64) * self.scale + self.bias
+    }
+}

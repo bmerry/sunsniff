@@ -44,9 +44,8 @@ struct Record {
     id: String,
     scale: Option<f64>,
     offset: Option<u32>,
-    #[allow(dead_code)]
+    offset2: Option<u32>,
     reg: Option<u16>,
-    #[allow(dead_code)]
     reg2: Option<u16>,
 }
 
@@ -116,7 +115,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         let record: Record = result?;
         if let Some(offset) = record.offset {
             pcap_records.push(record.clone());
-            pcap_offsets.push(offset);
+            let mut offsets = vec![offset];
+            if let Some(offset2) = record.offset2 {
+                offsets.push(offset2);
+            }
+            pcap_offsets.push(offsets);
         }
         if let Some(reg) = record.reg {
             modbus_records.push(record.clone());
@@ -135,11 +138,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         pcap_records.iter(),
     )?;
     writeln!(&mut pcap_writer, "/// Offsets of fields within packets")?;
-    writeln!(
-        &mut pcap_writer,
-        "const OFFSETS: &[usize] = &{:?};",
-        pcap_offsets.as_slice()
-    )?;
+    writeln!(&mut pcap_writer, "const OFFSETS: &[&[usize]] = &[")?;
+    for offsets in pcap_offsets.into_iter() {
+        writeln!(&mut pcap_writer, "    &{:?},", offsets.as_slice())?;
+    }
+    writeln!(&mut pcap_writer, "];")?;
     drop(pcap_writer);
 
     let mut modbus_writer = fs::File::create(modbus_path)?;

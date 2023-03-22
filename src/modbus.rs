@@ -52,22 +52,13 @@ fn default_modbus_id() -> u8 {
 
 async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
     let mut values = Vec::with_capacity(FIELDS.len());
+    let mut parts = [0u16; 2];
     for (field, regs) in FIELDS.iter().zip(REGISTERS.iter()) {
-        let mut raw: i64 = 0;
-        let mut shift: u32 = 0;
-        for reg in regs.iter() {
-            // TODO: error handling
-            let reg_value = ctx.read_holding_registers(*reg, 1).await?[0];
-            raw += (reg_value as i64) << shift;
-            shift += 16;
+        for (i, reg) in regs.iter().enumerate() {
+            // TODO: better error handling
+            parts[i] = ctx.read_holding_registers(*reg, 1).await?[0];
         }
-        let wrap: i64 = 1i64 << (shift - 1);
-        // Convert to signed (TODO: most registers are actually unsigned)
-        if raw >= wrap {
-            raw -= 2 * wrap;
-        }
-        // TODO: optimise this search (ideally at compile time)
-        let value = (raw as f64) * field.scale + field.bias;
+        let value = field.from_u16s(parts[..regs.len()].iter().cloned());
         values.push(value);
     }
     Ok(values)

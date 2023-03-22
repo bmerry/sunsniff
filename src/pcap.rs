@@ -97,11 +97,13 @@ impl PacketCodec for Codec {
                     dt, serial
                 );
                 let mut values = Vec::with_capacity(FIELDS.len());
-                for (&offset, field) in OFFSETS.iter().zip(FIELDS.iter()) {
-                    let bytes = &sliced.payload[offset..offset + 2];
-                    let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
-                    let value = i16::from_be_bytes(*bytes);
-                    let value = (value as f64) * field.scale + field.bias;
+                for (&offsets, field) in OFFSETS.iter().zip(FIELDS.iter()) {
+                    let parts = offsets.iter().cloned().map(|offset| {
+                        let bytes = &sliced.payload[offset..offset + 2];
+                        let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
+                        u16::from_be_bytes(*bytes)
+                    });
+                    let value = field.from_u16s(parts);
                     values.push(value);
                 }
                 let update = Update::new(dt.timestamp_nanos(), serial, FIELDS, values);
