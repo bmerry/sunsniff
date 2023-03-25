@@ -1,18 +1,33 @@
 # Inverter telemetry capture
 
-This program is designed to run on a router sitting between an inverter with an
-Inteless WiFi dongle and the remote server, intercept the sensor data, and make
-it available for use.
+This program collects data from a Sunsynk/Deye router and makes it available
+for use. It can collect the data in two ways (referred to as "frontends"):
 
-This is *pre-alpha* software. All the schemas may change. The data you collect
-might vanish, or leak onto the internet (but it's already being sent
-unencrypted, which is why this project works in the first place). The config file
-format may change. It may hang your router. While it supports authentication,
-none of the interfaces have been tested with TLS.
+1. By running on a router sitting between an inverter with an
+Inteless WiFi dongle and the remote server. In this mode it is a completely
+passive observer, so it cannot interface with the inverter's operation. This is
+called the `pcap` frontend.
 
-The good news is that by design it intercepts traffic but does not send any
-commands to your inverter, so it can't interfere with the inverter's
-operation.
+2. By connecting a serial cable to the inverter, it is possible to query it
+interactively. This requires additional hardware, but allows the query
+interval be set (and made much faster than the 5 minute interval the dongle
+uses), and the dongle can be removed for better privacy and security. In this
+mode commands are sent to your inverter, but they only read (not write) the
+registers, so it is still pretty safe. This is the `modbus` frontend. See
+[this guide](https://kellerza.github.io/sunsynk/guide/deployment-options) for
+information on how to wire the RS485 cable. There are reports that the RS232
+connection works too.
+
+There are also currently two "backends", which determine what to do with the
+data.
+
+1. Store the values in an Influxdb database (requires Influxdb2).
+2. Broadcast the values over MQTT.
+
+This is *alpha* software (although I am using it every day). All the schemas may
+change. The data you collect might vanish, or leak onto the internet (but it's
+already being sent unencrypted, which is why this project works in the first
+place). The config file format may change. It may hang your router.
 
 ## Compilation
 
@@ -40,8 +55,16 @@ wasn't working with glibc, so I ended up using a target of
 ## Configuration
 
 Configuration is stored in a [TOML](https://toml.io/) file, which is passed on
-the command line. There is one mandatory section, `[pcap]`. It has the following
-fields:
+the command line.
+
+Configure one of the possible frontends (do not try to configure more
+than one), and least one backend. It's possible to have more than one instance
+of the same backend (the doubled square brackets are the TOML syntax that
+allows for this).
+
+### Pcap frontend
+
+Create a `[pcap]` section. It has the following fields:
 
 - `device` (required): the Ethernet device to capture. Note that the `any`
   device is not currently supported.
@@ -63,14 +86,29 @@ filter = "src host 192.168.0.21"
 timezone = "Africa/Johannesburg"
 ```
 
-This just configures the data capture, but you should also specify at least
-one backend to actually do something with it. For each backend type you can
-configure multiple instances. This is why the section names are in double
-brackets.
+### Modbus frontend
+
+Create a `[modbus]` section. It has the following fields:
+
+- `device` (required): the serial device. Note that Modbus over TCP/IP isn't
+  supported yet.
+- `interval` (required): time (in seconds) between samples
+- `baud` (optional): baud rate for the serial port. Defaults to 9600.
+- `modbus_id` (optional): Modbus slave number of the inverter. Check your
+  inverter settings. Defaults to 1.
+
+I have the following configuration:
+
+```toml
+[modbus]
+device = "/dev/ttyUSB0"
+baud = 9600
+interval = 20
+```
 
 ### Influxdb2 backend
 
-The readings are inserted into an Influxdb bucket. Note that the schema is
+The readings are inserted into an Influxdb 2.x bucket. Note that the schema is
 **not final**.
 
 The configuration section looks like this:
@@ -145,6 +183,8 @@ TODO:
 - Change the offsets used for `grid_power`, `inverter_power`, `load_power`.
   This makes no difference on my inverter, but may give you more correct
   values if you have additional connections.
+- Hopefully fix the kWh sensors to include the upper 32 bits, so that they
+  can support values above 32767 kWh (untested).
 
 ### 0.1.2
 
