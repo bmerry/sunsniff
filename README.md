@@ -90,8 +90,9 @@ timezone = "Africa/Johannesburg"
 
 Create a `[modbus]` section. It has the following fields:
 
-- `device` (required): the serial device. Note that Modbus over TCP/IP isn't
-  supported yet.
+- `device` (required): the serial device, or the address for Modbus over TCP
+  in the format host:port (the port is required even when using the Modbus
+  default).
 - `interval` (required): time (in seconds) between samples
 - `baud` (optional): baud rate for the serial port. Defaults to 9600.
 - `modbus_id` (optional): Modbus slave number of the inverter. Check your

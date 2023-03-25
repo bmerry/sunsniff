@@ -67,12 +67,19 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
 pub async fn create_stream(
     config: &ModbusConfig,
 ) -> Result<UpdateStream, Box<dyn std::error::Error>> {
-    let serial_builder = tokio_serial::new(&config.device, config.baud);
-    let serial_stream = tokio_serial::SerialStream::open(&serial_builder)?;
-    let (mut sender, receiver) = mpsc::channel(1);
-    let interval = config.interval;
     let modbus_id = config.modbus_id;
-    let mut ctx = tokio_modbus::client::rtu::connect_slave(serial_stream, Slave(modbus_id)).await?;
+    let interval = config.interval;
+    let (mut sender, receiver) = mpsc::channel(1);
+    let mut ctx = match config.device.parse() {
+        Ok(socket_addr) => {
+            tokio_modbus::client::tcp::connect_slave(socket_addr, Slave(modbus_id)).await?
+        }
+        Err(_) => {
+            let serial_builder = tokio_serial::new(&config.device, config.baud);
+            let serial_stream = tokio_serial::SerialStream::open(&serial_builder)?;
+            tokio_modbus::client::rtu::connect_slave(serial_stream, Slave(modbus_id)).await?
+        }
+    };
     let serial_words = ctx.read_holding_registers(3, 5).await?;
     let mut serial_bytes = [0u8; 10];
     for i in 0..5 {
