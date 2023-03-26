@@ -55,7 +55,7 @@ async-trait = "0.1.57"
 chrono = { version = "0.4.22", default-features = false, features = ["std"] }
 chrono-tz = { version = "0.8.0", features = ["serde"], optional = true }
 clap = { version = "4.0.10", features = ["derive"] }
-env_logger = "0.9.1"
+env_logger = "0.10.0"
 etherparse = { version = "0.13.0", optional = true }
 futures = "0.3.24"
 influxdb2 = { version = "0.3.3", default_features = false, features = ["rustls"], optional = true }
