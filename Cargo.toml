@@ -40,9 +40,10 @@ pre-build = [
 ]
 
 [features]
-default = ["influxdb2", "mqtt", "modbus"]
+default = ["influxdb2", "mqtt", "modbus", "pcap"]
 mqtt = ["dep:mqtt-async-client", "dep:serde_json"]
-modbus = ["dep:serde_with", "dep:tokio-modbus", "dep:tokio-serial"]
+modbus = ["dep:serde_with", "dep:tokio-modbus", "dep:tokio-serial", "chrono/clock", "tokio/time"]
+pcap = ["dep:chrono-tz", "dep:etherparse", "dep:pcap"]
 
 [build-dependencies]
 csv = "1.2.1"
@@ -52,19 +53,19 @@ serde = { version = "1.0.147", features = ["derive"] }
 async-std = "1.12.0"
 async-trait = "0.1.57"
 chrono = { version = "0.4.22", default-features = false, features = ["std"] }
-chrono-tz = { version = "0.8.0", features = ["serde"] }
+chrono-tz = { version = "0.8.0", features = ["serde"], optional = true }
 clap = { version = "4.0.10", features = ["derive"] }
 env_logger = "0.9.1"
-etherparse = "0.12.0"
+etherparse = { version = "0.12.0", optional = true }
 futures = "0.3.24"
 influxdb2 = { version = "0.3.3", default_features = false, features = ["rustls"], optional = true }
 log = "0.4.17"
 mqtt-async-client = { version = "0.3.1", optional = true }
-pcap = { version = "0.11.0", features = ["capture-stream"] }
+pcap = { version = "0.11.0", features = ["capture-stream"], optional = true }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.87", optional = true }
 serde_with = { version = "2.3.1", optional = true }
-tokio = { version = "1.21.2", features = ["macros"] }
+tokio = { version = "1.21.2", features = ["macros", "rt"] }
 tokio-modbus = { version = "0.7.1", default-features = false, features = ["rtu", "tcp"], optional = true }
 tokio-serial = { version = "5.4.4", optional = true }
 toml = "0.5.9"

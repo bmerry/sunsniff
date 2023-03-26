@@ -29,6 +29,7 @@ use sunsniff::influxdb2::Influxdb2Receiver;
 use sunsniff::modbus::ModbusConfig;
 #[cfg(feature = "mqtt")]
 use sunsniff::mqtt::MqttReceiver;
+#[cfg(feature = "pcap")]
 use sunsniff::pcap::PcapConfig;
 use sunsniff::receiver::{Receiver, Update, UpdateItem};
 
@@ -42,6 +43,7 @@ struct Args {
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum InputConfig {
+    #[cfg(feature = "pcap")]
     Pcap(PcapConfig),
     #[cfg(feature = "modbus")]
     Modbus(ModbusConfig),
@@ -110,6 +112,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // TODO: better handling of errors from receivers
     let mut stream = match &config.input {
+        #[cfg(feature = "pcap")]
         InputConfig::Pcap(pcap_config) => sunsniff::pcap::create_stream(pcap_config)?,
         #[cfg(feature = "modbus")]
         InputConfig::Modbus(modbus_config) => {

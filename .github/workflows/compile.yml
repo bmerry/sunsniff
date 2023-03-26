@@ -14,7 +14,8 @@ jobs:
       matrix:
         include:
           - args: ""
-          - args: "--no-default-features"
+          - args: "--no-default-features --features=pcap"
+          - args: "--no-default-features --features=modbus"
     runs-on: ubuntu-22.04
     steps:
       - name: Install pcap
