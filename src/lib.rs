@@ -16,6 +16,9 @@
 
 #![doc = include_str!("../README.md")]
 
+#[cfg(all(not(feature = "pcap"), not(feature = "modbus")))]
+compile_error!("At least one frontend feature must be enabled");
+
 pub mod fields;
 #[cfg(feature = "influxdb2")]
 pub mod influxdb2;
