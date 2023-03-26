@@ -1,0 +1,31 @@
+name: Compile
+
+on:
+  - push
+  - pull_request
+
+concurrency:
+  group: compile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    strategy:
+      matrix:
+        include:
+          - args: ""
+          - args: "--no-default-features"
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install pcap
+        run: sudo apt-get install libpcap-dev
+      - uses: actions/checkout@v3
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy,rustfmt
+      - name: Check rustfmt
+        uses: actions-rust-lang/rustfmt@v1
+      - name: Check clippy
+        run: cargo clippy
+      - name: Compile
+        run: cargo build ${{ matrix.args }}
