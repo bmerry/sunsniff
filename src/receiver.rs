@@ -1,4 +1,4 @@
-/* Copyright 2022 Bruce Merry
+/* Copyright 2022-2023 Bruce Merry
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -18,6 +18,8 @@
 
 use async_trait::async_trait;
 use futures::channel::mpsc::UnboundedReceiver;
+use futures::stream::Stream;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use super::fields::Field;
@@ -57,3 +59,6 @@ impl<'a> Update<'a> {
         }
     }
 }
+
+pub type UpdateItem = Arc<Update<'static>>;
+pub type UpdateStream = Pin<Box<dyn Stream<Item = UpdateItem>>>;

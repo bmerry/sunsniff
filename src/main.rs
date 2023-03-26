@@ -1,4 +1,4 @@
-/* Copyright 2022 Bruce Merry
+/* Copyright 2022-2023 Bruce Merry
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -25,10 +25,12 @@ use std::sync::Arc;
 
 #[cfg(feature = "influxdb2")]
 use sunsniff::influxdb2::Influxdb2Receiver;
+#[cfg(feature = "modbus")]
+use sunsniff::modbus::ModbusConfig;
 #[cfg(feature = "mqtt")]
 use sunsniff::mqtt::MqttReceiver;
 use sunsniff::pcap::PcapConfig;
-use sunsniff::receiver::{Receiver, Update};
+use sunsniff::receiver::{Receiver, Update, UpdateItem};
 
 #[derive(Debug, Parser)]
 #[clap(author, version)]
@@ -37,12 +39,21 @@ struct Args {
     config_file: PathBuf,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum InputConfig {
+    Pcap(PcapConfig),
+    #[cfg(feature = "modbus")]
+    Modbus(ModbusConfig),
+}
+
 /// Structure corresponding to the configuration file. It is constructured
 /// from the config file by serde.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Config {
-    pcap: PcapConfig,
+    #[serde(flatten)]
+    input: InputConfig,
     #[cfg(feature = "influxdb2")]
     #[serde(default)]
     influxdb2: Vec<sunsniff::influxdb2::Config>,
@@ -54,14 +65,12 @@ struct Config {
 /// Top-level execution. Receive updates from a stream and distribute them to
 /// multiple receivers.
 async fn run(
-    stream: &mut (dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin),
+    stream: &mut (dyn Stream<Item = UpdateItem> + Unpin),
     sinks: &mut [UnboundedSender<Arc<Update<'static>>>],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    while let Some(item) = stream.next().await {
-        if let Some(update) = item? {
-            for sink in sinks.iter_mut() {
-                sink.unbounded_send(Arc::clone(&update))?;
-            }
+    while let Some(update) = stream.next().await {
+        for sink in sinks.iter_mut() {
+            sink.unbounded_send(Arc::clone(&update))?;
         }
     }
     for sink in sinks.iter_mut() {
@@ -100,7 +109,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // TODO: better handling of errors from receivers
-    let mut stream = sunsniff::pcap::create_stream(&config.pcap)?;
+    let mut stream = match &config.input {
+        InputConfig::Pcap(pcap_config) => sunsniff::pcap::create_stream(pcap_config)?,
+        #[cfg(feature = "modbus")]
+        InputConfig::Modbus(modbus_config) => {
+            sunsniff::modbus::create_stream(modbus_config).await?
+        }
+    };
     try_join!(
         run(&mut stream, &mut sinks),
         futures.collect::<Vec<_>>().map(Ok)

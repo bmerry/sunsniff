@@ -1,4 +1,4 @@
-/* Copyright 2022 Bruce Merry
+/* Copyright 2022-2023 Bruce Merry
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -18,13 +18,22 @@ use chrono::{DateTime, LocalResult, NaiveDate};
 use chrono_tz::Tz;
 use etherparse::SlicedPacket;
 use futures::prelude::*;
-use log::info;
+use log::{error, info};
 use pcap::{Capture, Device, Packet, PacketCodec};
 use serde::Deserialize;
+use std::ops::Range;
 use std::sync::Arc;
 
-use crate::fields::{self, FIELDS};
-use crate::receiver::Update;
+use crate::receiver::{Update, UpdateStream};
+
+/// Expected length of the packet (TCP payload)
+const MAGIC_LENGTH: usize = 292;
+/// Expected first byte of the packet
+const MAGIC_HEADER: u8 = 0xa5;
+/// Offsets containing the inverter serial number
+const SERIAL_RANGE: Range<usize> = 11..21;
+/// Offset at which the timestamp is located
+const DATETIME_OFFSET: usize = 37;
 
 /// Structure corresponding to the `[pcap]` section of the configuration file.
 /// It is constructed from the config file by serde.
@@ -52,14 +61,14 @@ struct Codec {
 /// time zone, returns `None`.
 fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
     let dt = NaiveDate::from_ymd_opt(
-        payload[fields::DATETIME_OFFSET] as i32 + 2000,
-        payload[fields::DATETIME_OFFSET + 1] as u32,
-        payload[fields::DATETIME_OFFSET + 2] as u32,
+        payload[DATETIME_OFFSET] as i32 + 2000,
+        payload[DATETIME_OFFSET + 1] as u32,
+        payload[DATETIME_OFFSET + 2] as u32,
     )?
     .and_hms_opt(
-        payload[fields::DATETIME_OFFSET + 3] as u32,
-        payload[fields::DATETIME_OFFSET + 4] as u32,
-        payload[fields::DATETIME_OFFSET + 5] as u32,
+        payload[DATETIME_OFFSET + 3] as u32,
+        payload[DATETIME_OFFSET + 4] as u32,
+        payload[DATETIME_OFFSET + 5] as u32,
     )?
     .and_local_timezone(tz);
     match dt {
@@ -74,9 +83,7 @@ impl PacketCodec for Codec {
     /// Decode a single packet
     fn decode(&mut self, packet: Packet<'_>) -> Self::Item {
         if let Ok(sliced) = SlicedPacket::from_ethernet(packet.data) {
-            if sliced.payload.len() == fields::MAGIC_LENGTH
-                && sliced.payload[0] == fields::MAGIC_HEADER
-            {
+            if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
                 let dt = match parse_timestamp(sliced.payload, self.tz) {
                     Some(x) => x,
                     None => {
@@ -84,17 +91,19 @@ impl PacketCodec for Codec {
                     }
                 };
                 let serial =
-                    std::str::from_utf8(&sliced.payload[fields::SERIAL_RANGE]).unwrap_or("unknown");
+                    std::str::from_utf8(&sliced.payload[SERIAL_RANGE]).unwrap_or("unknown");
                 info!(
                     "Received packet with timestamp {:?} for inverter {}",
                     dt, serial
                 );
-                let mut values = vec![];
-                for field in FIELDS.iter() {
-                    let bytes = &sliced.payload[field.offset..field.offset + 2];
-                    let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
-                    let value = i16::from_be_bytes(*bytes);
-                    let value = (value as f64) * field.scale + field.bias;
+                let mut values = Vec::with_capacity(FIELDS.len());
+                for (&offsets, field) in OFFSETS.iter().zip(FIELDS.iter()) {
+                    let parts = offsets.iter().cloned().map(|offset| {
+                        let bytes = &sliced.payload[offset..offset + 2];
+                        let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
+                        u16::from_be_bytes(*bytes)
+                    });
+                    let value = field.from_u16s(parts);
                     values.push(value);
                 }
                 let update = Update::new(dt.timestamp_nanos(), serial, FIELDS, values);
@@ -105,9 +114,19 @@ impl PacketCodec for Codec {
     }
 }
 
-pub fn create_stream(
-    config: &PcapConfig,
-) -> Result<Box<dyn Stream<Item = Result<Option<Arc<Update<'static>>>, pcap::Error>> + Unpin>, Box<dyn std::error::Error>> {
+async fn filter_fn(
+    item: Result<Option<Arc<Update<'static>>>, pcap::Error>,
+) -> Option<Arc<Update<'static>>> {
+    match item {
+        Ok(value) => value,
+        Err(err) => {
+            error!("Error from pcap: {err:?}");
+            None
+        }
+    }
+}
+
+pub fn create_stream(config: &PcapConfig) -> Result<UpdateStream, Box<dyn std::error::Error>> {
     let base_filter = "tcp";
     let filter = match &config.filter {
         Some(expr) => format!("({}) and ({})", base_filter, expr),
@@ -125,13 +144,17 @@ pub fn create_stream(
          * workaround: it's probably going to load all the packets into
          * the sinks at once before giving them a chance to run.
          */
-        Ok(Box::new(futures::stream::iter(cap.iter(codec))))
+        Ok(Box::pin(
+            futures::stream::iter(cap.iter(codec)).filter_map(filter_fn),
+        ))
     } else {
         let device = Device::from(config.device.as_str());
         let cap = Capture::from_device(device)?.immediate_mode(true).open()?;
         let mut cap = cap.setnonblock()?;
         cap.filter(filter.as_str(), true)?;
         cap.set_datalink(pcap::Linktype::ETHERNET)?;
-        Ok(Box::new(cap.stream(codec)?))
+        Ok(Box::pin(cap.stream(codec)?.filter_map(filter_fn)))
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/pcap_fields.rs"));

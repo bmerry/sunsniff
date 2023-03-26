@@ -40,8 +40,13 @@ pre-build = [
 ]
 
 [features]
-default = ["influxdb2", "mqtt"]
+default = ["influxdb2", "mqtt", "modbus"]
 mqtt = ["dep:mqtt-async-client", "dep:serde_json"]
+modbus = ["dep:serde_with", "dep:tokio-modbus", "dep:tokio-serial"]
+
+[build-dependencies]
+csv = "1.2.1"
+serde = { version = "1.0.147", features = ["derive"] }
 
 [dependencies]
 async-std = "1.12.0"
@@ -58,5 +63,8 @@ mqtt-async-client = { version = "0.3.1", optional = true }
 pcap = { version = "0.11.0", features = ["capture-stream"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.87", optional = true }
+serde_with = { version = "2.3.1", optional = true }
 tokio = { version = "1.21.2", features = ["macros"] }
+tokio-modbus = { version = "0.7.1", default-features = false, features = ["rtu", "tcp"], optional = true }
+tokio-serial = { version = "5.4.4", optional = true }
 toml = "0.5.9"
