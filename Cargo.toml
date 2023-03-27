@@ -58,7 +58,7 @@ clap = { version = "4.0.10", features = ["derive"] }
 env_logger = "0.10.0"
 etherparse = { version = "0.13.0", optional = true }
 futures = "0.3.24"
-influxdb2 = { version = "0.3.3", default_features = false, features = ["rustls"], optional = true }
+influxdb2 = { version = "0.3.9", default_features = false, features = ["rustls"], optional = true }
 log = "0.4.17"
 mqtt-async-client = { version = "0.3.1", optional = true }
 pcap = { version = "1.0.0", features = ["capture-stream"], optional = true }
