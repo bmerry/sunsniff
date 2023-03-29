@@ -77,10 +77,13 @@ impl Receiver for Influxdb2Receiver {
                     .timestamp(update.timestamp)
                     .tag("serial", update.serial.as_str())
                     .tag("group", field.group)
-                    .tag("name", field.name)
-                    .tag("unit", field.unit)
-                    .field("value", *value)
-                    .build();
+                    .tag("name", field.name);
+                let build = if field.unit.is_empty() {
+                    build
+                } else {
+                    build.tag("unit", field.unit)
+                };
+                let build = build.field("value", *value).build();
                 match build {
                     Ok(value) => {
                         points.push(value);

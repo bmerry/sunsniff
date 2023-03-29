@@ -25,6 +25,7 @@ pub enum FieldType {
     StateOfCharge,
     Temperature,
     Voltage,
+    Unitless,
 }
 
 /// Static description of a field in the data

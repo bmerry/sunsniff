@@ -52,7 +52,7 @@ impl<'a> ClassInfo<'a> {
 impl From<FieldType> for ClassInfo<'static> {
     fn from(ft: FieldType) -> Self {
         match ft {
-            FieldType::Charge => ClassInfo::new_no_device("measurement"),
+            FieldType::Charge | FieldType::Unitless => ClassInfo::new_no_device("measurement"),
             FieldType::Current => ClassInfo::new("current", "measurement"),
             FieldType::Energy => ClassInfo::new("energy", "total_increasing"),
             FieldType::Frequency => ClassInfo::new_no_device("measurement"),

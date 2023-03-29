@@ -32,6 +32,7 @@ enum FieldType {
     StateOfCharge,
     Temperature,
     Voltage,
+    Unitless,
 }
 
 use FieldType::*;
@@ -62,7 +63,7 @@ where
     writeln!(w, "const FIELDS: &[Field] = &[")?;
     for record in records {
         let default_scale = match record.field_type {
-            Charge | Power | StateOfCharge => Some(1.0),
+            Charge | Power | StateOfCharge | Unitless => Some(1.0),
             Energy | Temperature => Some(0.1),
             Frequency => Some(0.01),
             Current | Voltage => None,
@@ -80,6 +81,7 @@ where
             StateOfCharge => "%",
             Temperature => "°C",
             Voltage => "V",
+            Unitless => "",
         };
         let scale = record.scale.or(default_scale).unwrap();
         writeln!(
