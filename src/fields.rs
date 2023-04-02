@@ -58,3 +58,36 @@ impl<'a> Field<'a> {
         (raw as f64) * self.scale + self.bias
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use assert_approx_eq::assert_approx_eq;
+
+    fn field() -> Field<'static> {
+        Field {
+            field_type: FieldType::Energy,
+            group: "Grid",
+            name: "Total import",
+            id: "grid_import",
+            scale: 0.1,
+            bias: -10.0, // Not realistic, but useful to test the feature
+            unit: "kWh",
+        }
+    }
+
+    #[test]
+    fn test_from_u16s_one() {
+        let f = field();
+        assert_approx_eq!(f.from_u16s([12345]), 1224.5);
+        assert_approx_eq!(f.from_u16s([55536]), -1010.0);
+    }
+
+    #[test]
+    fn test_from_u16s_two() {
+        let f = field();
+        assert_approx_eq!(f.from_u16s([12345, 4321]), 28319330.1);
+        assert_approx_eq!(f.from_u16s([55536, 4321]), 28323649.2);
+        assert_approx_eq!(f.from_u16s([55536, 55536]), -65530456.4);
+    }
+}
