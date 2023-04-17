@@ -116,7 +116,7 @@ dependencies = [
  "log",
  "parking",
  "polling",
- "rustix 0.37.3",
+ "rustix",
  "slab",
  "socket2",
  "waker-fn",
@@ -1016,7 +1016,7 @@ checksum = "256017f749ab3117e93acb91063009e1f1bb56d03965b14c2c8df4eb02c524d8"
 dependencies = [
  "hermit-abi 0.3.1",
  "io-lifetimes",
- "rustix 0.37.3",
+ "rustix",
  "windows-sys 0.45.0",
 ]
 
@@ -1083,12 +1083,6 @@ checksum = "ecd207c9c713c34f95a097a5b029ac2ce6010530c7b49d7fea24d977dede04f5"
 dependencies = [
  "cc",
 ]
-
-[[package]]
-name = "linux-raw-sys"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
 
 [[package]]
 name = "linux-raw-sys"
@@ -1359,7 +1353,7 @@ dependencies = [
  "cfg-if",
  "instant",
  "libc",
- "redox_syscall",
+ "redox_syscall 0.2.16",
  "smallvec",
  "winapi",
 ]
@@ -1552,6 +1546,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox_syscall"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "567664f262709473930a4bf9e51bf2ebf3348f2e748ccc50dea20646858f8f29"
+dependencies = [
+ "bitflags",
+]
+
+[[package]]
 name = "regex"
 version = "1.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1635,20 +1638,6 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.36.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db4165c9963ab29e422d6c26fbc1d37f15bace6b2810221f9d925023480fcf0e"
-dependencies = [
- "bitflags",
- "errno 0.2.8",
- "io-lifetimes",
- "libc",
- "linux-raw-sys 0.1.4",
- "windows-sys 0.45.0",
-]
-
-[[package]]
-name = "rustix"
 version = "0.37.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62b24138615de35e32031d041a09032ef3487a616d901ca4db224e7d557efae2"
@@ -1657,7 +1646,7 @@ dependencies = [
  "errno 0.3.0",
  "io-lifetimes",
  "libc",
- "linux-raw-sys 0.3.0",
+ "linux-raw-sys",
  "windows-sys 0.45.0",
 ]
 
@@ -1970,15 +1959,15 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.4.0"
+version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af18f7ae1acd354b992402e9ec5864359d693cd8a79dcbef59f76891701c1e95"
+checksum = "b9fbec84f381d5795b08656e4912bec604d162bff9291d6189a78f4c8ab87998"
 dependencies = [
  "cfg-if",
  "fastrand",
- "redox_syscall",
- "rustix 0.36.11",
- "windows-sys 0.42.0",
+ "redox_syscall 0.3.5",
+ "rustix",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -2552,21 +2541,6 @@ dependencies = [
  "windows_i686_msvc 0.36.1",
  "windows_x86_64_gnu 0.36.1",
  "windows_x86_64_msvc 0.36.1",
-]
-
-[[package]]
-name = "windows-sys"
-version = "0.42.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a3e1820f08b8513f676f7ab6c1f99ff312fb97b553d30ff4dd86f9f15728aa7"
-dependencies = [
- "windows_aarch64_gnullvm 0.42.2",
- "windows_aarch64_msvc 0.42.2",
- "windows_i686_gnu 0.42.2",
- "windows_i686_msvc 0.42.2",
- "windows_x86_64_gnu 0.42.2",
- "windows_x86_64_gnullvm 0.42.2",
- "windows_x86_64_msvc 0.42.2",
 ]
 
 [[package]]
