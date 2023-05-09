@@ -24,6 +24,7 @@ pub enum FieldType {
     Power,
     StateOfCharge,
     Temperature,
+    Time,
     Voltage,
     Unitless,
 }
@@ -54,6 +55,12 @@ impl<'a> Field<'a> {
         // Convert to signed (TODO: most registers are actually unsigned)
         if raw >= wrap {
             raw -= 2 * wrap;
+        }
+        // Special handling for time fields: HH:MM is encoded as HH*100+MM.
+        if self.field_type == FieldType::Time {
+            let h = raw / 100;
+            let m = raw % 100;
+            raw = h * 60 + m;
         }
         (raw as f64) * self.scale + self.bias
     }

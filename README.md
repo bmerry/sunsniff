@@ -177,6 +177,13 @@ TODO:
 
 ## Changelog
 
+### 0.3
+
+- Add `grid_connected` sensor
+- Add sensors for programmed time blocks
+- Make pcap frontend optional
+- Fix cross compiling of pcap for some architectures
+
 ### 0.2
 
 - Add modbus support.

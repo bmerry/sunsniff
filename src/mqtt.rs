@@ -59,6 +59,7 @@ impl From<FieldType> for ClassInfo<'static> {
             FieldType::Power => ClassInfo::new("power", "measurement"),
             FieldType::StateOfCharge => ClassInfo::new("battery", "measurement"),
             FieldType::Temperature => ClassInfo::new("temperature", "measurement"),
+            FieldType::Time => ClassInfo::new_no_device("measurement"),
             FieldType::Voltage => ClassInfo::new("voltage", "measurement"),
         }
     }

@@ -31,6 +31,7 @@ enum FieldType {
     Power,
     StateOfCharge,
     Temperature,
+    Time,
     Voltage,
     Unitless,
 }
@@ -67,6 +68,7 @@ where
             Energy | Temperature => Some(0.1),
             Frequency => Some(0.01),
             Current | Voltage => None,
+            Time => Some(60.0),
         };
         let bias = match record.field_type {
             Temperature => -100.0,
@@ -80,6 +82,7 @@ where
             Power => "W",
             StateOfCharge => "%",
             Temperature => "°C",
+            Time => "s",
             Voltage => "V",
             Unitless => "",
         };
