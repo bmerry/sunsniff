@@ -28,6 +28,8 @@ use tokio_modbus::slave::Slave;
 
 use crate::receiver::{Update, UpdateStream};
 
+const REG_CLOCK: u16 = 22;
+
 /// Structure corresponding to the `[modbus]` section of the configuration file.
 #[serde_as]
 #[derive(Deserialize)]
@@ -54,13 +56,36 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
     let mut values = Vec::with_capacity(FIELDS.len());
     let mut parts = [0u16; 2];
     for (field, regs) in FIELDS.iter().zip(REGISTERS.iter()) {
-        for (i, reg) in regs.iter().enumerate() {
-            // TODO: better error handling
-            parts[i] = ctx.read_holding_registers(*reg, 1).await?[0];
+        let value;
+        if !regs.is_empty() {
+            for (i, reg) in regs.iter().enumerate() {
+                // TODO: better error handling
+                parts[i] = ctx.read_holding_registers(*reg, 1).await?[0];
+            }
+            value = field.from_u16s(parts[..regs.len()].iter().cloned());
+        } else {
+            value = 0.0;
         }
-        let value = field.from_u16s(parts[..regs.len()].iter().cloned());
         values.push(value);
     }
+    // Get the inverter time, since that'll determine which program is current
+    let time_regs = ctx.read_holding_registers(REG_CLOCK, 3).await?;
+    let hour = time_regs[1] & 0xff;
+    let minute = time_regs[2] >> 8;
+    let second = time_regs[2] & 0xff;
+    let now = (hour as f64) * 3600.0 + (minute as f64) * 60.0 + (second as f64);
+    let mut prog = 5;
+    for i in 0..4 {
+        let start = values[field_idx::INVERTER_PROGRAM_TIME_1 + i];
+        let stop = values[field_idx::INVERTER_PROGRAM_TIME_2 + i];
+        if now >= start && now < stop {
+            prog = i;
+            break;
+        }
+    }
+    values[field_idx::INVERTER_PROGRAM_POWER] = values[field_idx::INVERTER_PROGRAM_POWER_1 + prog];
+    values[field_idx::INVERTER_PROGRAM_SOC] = values[field_idx::INVERTER_PROGRAM_SOC_1 + prog];
+
     Ok(values)
 }
 

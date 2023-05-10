@@ -47,22 +47,18 @@ struct Record {
     scale: Option<f64>,
     offset: Option<u32>,
     offset2: Option<u32>,
-    reg: Option<u16>,
-    reg2: Option<u16>,
+    reg: Option<i16>,
+    reg2: Option<i16>,
 }
 
-fn write_fields<'a, W>(
-    w: &mut W,
-    header: &str,
-    records: impl Iterator<Item = &'a Record>,
-) -> Result<(), Box<dyn Error>>
+fn write_fields<W>(w: &mut W, header: &str, records: &[Record]) -> Result<(), Box<dyn Error>>
 where
     W: Write,
 {
     writeln!(w, "use crate::fields::{{Field, FieldType}};")?;
     writeln!(w, "{header}")?;
     writeln!(w, "const FIELDS: &[Field] = &[")?;
-    for record in records {
+    for record in records.iter() {
         let default_scale = match record.field_type {
             Charge | Power | StateOfCharge | Unitless => Some(1.0),
             Energy | Temperature => Some(0.1),
@@ -102,6 +98,19 @@ where
         )?;
     }
     writeln!(w, "];")?;
+
+    writeln!(w, "#[allow(dead_code)]")?;
+    writeln!(w, "mod field_idx {{")?;
+    for (i, record) in records.iter().enumerate() {
+        writeln!(
+            w,
+            "    pub const {}: usize = {};",
+            record.id.to_uppercase(),
+            i
+        )?;
+    }
+    writeln!(w, "}}")?;
+
     Ok(())
 }
 
@@ -128,9 +137,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         if let Some(reg) = record.reg {
             modbus_records.push(record.clone());
-            let mut regs = vec![reg];
-            if let Some(reg2) = record.reg2 {
-                regs.push(reg2);
+            let mut regs = vec![];
+            if reg >= 0 {
+                regs.push(reg);
+                if let Some(reg2) = record.reg2 {
+                    regs.push(reg2);
+                }
             }
             modbus_regs.push(regs);
         }
@@ -140,7 +152,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     write_fields(
         &mut pcap_writer,
         "/// Fields found in each packet",
-        pcap_records.iter(),
+        &pcap_records,
     )?;
     writeln!(&mut pcap_writer, "/// Offsets of fields within packets")?;
     writeln!(&mut pcap_writer, "const OFFSETS: &[&[usize]] = &[")?;
@@ -154,7 +166,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     write_fields(
         &mut modbus_writer,
         "/// Fields retrieved by modbus protocol",
-        modbus_records.iter(),
+        &modbus_records,
     )?;
     writeln!(&mut modbus_writer, "/// Registers corresponding to fields")?;
     writeln!(&mut modbus_writer, "const REGISTERS: &[&[u16]] = &[")?;
