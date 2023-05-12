@@ -29,6 +29,7 @@ use tokio_modbus::slave::Slave;
 use crate::receiver::{Update, UpdateStream};
 
 const REG_CLOCK: u16 = 22;
+const NUM_PROGRAMS: usize = 6;
 
 /// Structure corresponding to the `[modbus]` section of the configuration file.
 #[serde_as]
@@ -74,8 +75,8 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
     let minute = time_regs[2] >> 8;
     let second = time_regs[2] & 0xff;
     let now = (hour as f64) * 3600.0 + (minute as f64) * 60.0 + (second as f64);
-    let mut prog = 5;
-    for i in 0..5 {
+    let mut prog = NUM_PROGRAMS - 1;
+    for i in 0..(NUM_PROGRAMS - 1) {
         let start = values[field_idx::INVERTER_PROGRAM_TIME_1 + i];
         let stop = values[field_idx::INVERTER_PROGRAM_TIME_2 + i];
         if now >= start && now < stop {
