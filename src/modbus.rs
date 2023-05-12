@@ -75,7 +75,7 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
     let second = time_regs[2] & 0xff;
     let now = (hour as f64) * 3600.0 + (minute as f64) * 60.0 + (second as f64);
     let mut prog = 5;
-    for i in 0..4 {
+    for i in 0..5 {
         let start = values[field_idx::INVERTER_PROGRAM_TIME_1 + i];
         let stop = values[field_idx::INVERTER_PROGRAM_TIME_2 + i];
         if now >= start && now < stop {
