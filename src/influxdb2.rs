@@ -59,7 +59,6 @@ impl Influxdb2Receiver {
                 warn!("Could not connect to Influxdb server: {}", err);
             }
         }
-        // TODO: Warn if we can't connect to the server or it is unhealthy
         Self {
             client,
             bucket: config.bucket.to_owned(),
