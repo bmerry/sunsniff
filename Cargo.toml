@@ -65,7 +65,7 @@ mqtt-async-client = { version = "0.3.1", optional = true }
 pcap = { version = "1.0.0", features = ["capture-stream"], optional = true }
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = { version = "1.0.95", optional = true }
-serde_with = { version = "2.3.1", optional = true }
+serde_with = { version = "3.1.0", optional = true }
 tokio = { version = "1.21.2", features = ["macros", "rt"] }
 tokio-modbus = { version = "0.7.1", default-features = false, features = ["rtu", "tcp"], optional = true }
 tokio-serial = { version = "5.4.4", optional = true }
