@@ -126,7 +126,8 @@ pub async fn create_stream(
                 Ok(values) => {
                     info!("Received a set of values from modbus");
                     let now = chrono::Utc::now();
-                    let update = Update::new(now.timestamp_nanos(), &serial, FIELDS, values);
+                    let update =
+                        Update::new(now.timestamp_nanos_opt().unwrap(), &serial, FIELDS, values);
                     // TODO: Handle error from send
                     sender.send(Arc::new(update)).await.unwrap();
                 }

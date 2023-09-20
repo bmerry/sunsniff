@@ -103,7 +103,12 @@ impl Codec {
                     let value = field.from_u16s(parts);
                     values.push(value);
                 }
-                let update = Update::new(dt.timestamp_nanos(), serial, FIELDS, values);
+                /* unwrapping timestamp_nanos_opt is safe because the encoding
+                 * only supports up to 2127 (or 2255 if the year is interpreted
+                 * as unsigned), which DateTime supports up to 2262 for
+                 * nanosecond timestamps.
+                 */
+                let update = Update::new(dt.timestamp_nanos_opt().unwrap(), serial, FIELDS, values);
                 return Some(Arc::new(update));
             }
         }
