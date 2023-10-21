@@ -34,7 +34,7 @@ pre-build = [
     'curl https://www.tcpdump.org/release/libpcap-1.10.4.tar.gz | tar -zx',
     'cd libpcap-1.10.4',
     'arch="$(dpkg-architecture -A $CROSS_DEB_ARCH -q DEB_TARGET_GNU_TYPE)"',
-    'arch="$(./config.sub $arch)"',
+    'if ! which ${arch}-gcc; then arch="$(./config.sub $arch)"; fi',
     './configure --host "$arch" --disable-shared LDFLAGS="-static"',
     'make',
     'make install'
