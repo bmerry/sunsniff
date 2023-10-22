@@ -177,6 +177,11 @@ TODO:
 
 ## Changelog
 
+### 0.3.1
+
+- Updates of dependencies
+- Fix cross builds for aarch64-linux-gnu
+
 ### 0.3
 
 - Add `grid_connected` sensor
