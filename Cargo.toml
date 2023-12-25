@@ -43,7 +43,7 @@ pre-build = [
 [features]
 default = ["influxdb2", "mqtt", "modbus", "pcap"]
 mqtt = ["dep:mqtt-async-client", "dep:serde_json"]
-modbus = ["dep:serde_with", "dep:tokio-modbus", "dep:tokio-serial", "chrono/clock", "tokio/time"]
+modbus = ["dep:modbus-robust", "dep:serde_with", "dep:tokio-modbus", "dep:tokio-serial", "chrono/clock", "tokio/time"]
 pcap = ["dep:chrono-tz", "dep:etherparse", "dep:pcap"]
 
 [build-dependencies]
@@ -61,13 +61,14 @@ etherparse = { version = "0.13.0", optional = true }
 futures = "0.3.28"
 influxdb2 = { version = "0.4.0", default_features = false, features = ["rustls"], optional = true }
 log = "0.4.17"
+modbus-robust = { version = "0.1.0", optional = true }
 mqtt-async-client = { version = "0.3.1", optional = true }
 pcap = { version = "1.0.0", features = ["capture-stream"], optional = true }
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = { version = "1.0.95", optional = true }
 serde_with = { version = "3.2.0", optional = true }
 tokio = { version = "1.21.2", features = ["macros", "rt"] }
-tokio-modbus = { version = "0.7.1", default-features = false, features = ["rtu", "tcp"], optional = true }
+tokio-modbus = { version = "0.9.0", default-features = false, features = ["rtu", "tcp"], optional = true }
 tokio-serial = { version = "5.4.4", optional = true }
 toml = "0.7.3"
 

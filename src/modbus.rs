@@ -96,15 +96,10 @@ pub async fn create_stream(
     let modbus_id = config.modbus_id;
     let interval = config.interval;
     let (mut sender, receiver) = mpsc::channel(1);
+    let slave = Slave(modbus_id);
     let mut ctx = match config.device.parse() {
-        Ok(socket_addr) => {
-            tokio_modbus::client::tcp::connect_slave(socket_addr, Slave(modbus_id)).await?
-        }
-        Err(_) => {
-            let serial_builder = tokio_serial::new(&config.device, config.baud);
-            let serial_stream = tokio_serial::SerialStream::open(&serial_builder)?;
-            tokio_modbus::client::rtu::connect_slave(serial_stream, Slave(modbus_id)).await?
-        }
+        Ok(socket_addr) => modbus_robust::new_tcp_slave(socket_addr, slave),
+        Err(_) => modbus_robust::new_rtu_slave(&config.device, config.baud, slave),
     };
     let serial_words = ctx.read_holding_registers(3, 5).await?;
     let mut serial_bytes = [0u8; 10];

@@ -249,9 +249,9 @@ checksum = "b4eb2cdb97421e01129ccb49169d8279ed21e829929144f4a22a6e54ac549ca1"
 
 [[package]]
 name = "async-trait"
-version = "0.1.74"
+version = "0.1.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a66537f1bb974b254c98ed142ff995236e81b9d0fe4db0575f46612cb15eb0f9"
+checksum = "fdf6721fb0140e4f897002dd086c06f6c27775df19cfe1fccb21181a48fd2c98"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1285,6 +1285,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "modbus-robust"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4efb5df2e29d48ae9dcc51ef9255aae09f2f3f2a20a3d67ca8c11912ef2f2d5f"
+dependencies = [
+ "async-trait",
+ "tokio",
+ "tokio-modbus",
+ "tokio-serial",
+]
+
+[[package]]
 name = "mqtt-async-client"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1960,6 +1972,7 @@ dependencies = [
  "futures",
  "influxdb2",
  "log",
+ "modbus-robust",
  "mqtt-async-client",
  "pcap",
  "serde",
@@ -2069,9 +2082,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.35.0"
+version = "1.35.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "841d45b238a16291a4e1584e61820b8ae57d696cc5015c459c229ccc6990cc1c"
+checksum = "c89b4efa943be685f629b149f53829423f8f5531ea21249408e8e2f8671ec104"
 dependencies = [
  "backtrace",
  "bytes 1.5.0",
@@ -2097,17 +2110,20 @@ dependencies = [
 
 [[package]]
 name = "tokio-modbus"
-version = "0.7.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e82dfb1a3265ca939b7a76103c89ad770f8cc0ea8de76c83d352e7c1fc5b2c8b"
+checksum = "e0f38205d1e83e64947e0b07731cc05667952f5fb0986279573022305edfbf4e"
 dependencies = [
  "async-trait",
  "byteorder",
  "bytes 1.5.0",
+ "futures",
  "futures-util",
  "log",
  "smallvec",
+ "socket2 0.5.5",
  "tokio",
+ "tokio-serial",
  "tokio-util",
 ]
 
