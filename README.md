@@ -177,6 +177,11 @@ TODO:
 
 ## Changelog
 
+### 0.3.2
+
+- Updates of dependencies
+- Use modbus-robust so that restarting mbusd will be handled robustly
+
 ### 0.3.1
 
 - Updates of dependencies
