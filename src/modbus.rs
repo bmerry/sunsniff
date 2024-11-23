@@ -87,6 +87,9 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
     values[field_idx::INVERTER_PROGRAM_POWER] = values[field_idx::INVERTER_PROGRAM_POWER_1 + prog];
     values[field_idx::INVERTER_PROGRAM_SOC] = values[field_idx::INVERTER_PROGRAM_SOC_1 + prog];
 
+    // Other computed fields
+    values[field_idx::PV_POWER] = values[field_idx::PV_POWER_1] + values[field_idx::PV_POWER_2];
+
     Ok(values)
 }
 
