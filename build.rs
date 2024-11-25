@@ -1,4 +1,4 @@
-/* Copyright 2023 Bruce Merry
+/* Copyright 2023-2024 Bruce Merry
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -14,12 +14,15 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+use csv::StringRecord;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::rc::Rc;
 
 /// Duplicate of crate::fields::FieldType
 #[derive(Deserialize, Debug, Clone)]
@@ -39,16 +42,45 @@ enum FieldType {
 use FieldType::*;
 
 #[derive(Deserialize, Clone)]
-struct Record {
+struct Metadata {
     field_type: FieldType,
     group: String,
     name: String,
     id: String,
     scale: Option<f64>,
-    offset: Option<u32>,
-    offset2: Option<u32>,
-    reg: Option<i16>,
-    reg2: Option<i16>,
+}
+
+struct Record {
+    metadata: Rc<Metadata>,
+    fields: Vec<i32>,
+}
+
+impl Record {
+    fn new(
+        metadata: &Rc<Metadata>,
+        name1: &str,
+        name2: &str,
+        header_index: &HashMap<&str, usize>,
+        row: &StringRecord,
+    ) -> Option<Self> {
+        let pos1 = header_index[name1];
+        let pos2 = header_index[name2];
+        let mut fields: Vec<i32> = vec![];
+        if let Some(value1) = row.get(pos1).and_then(|x| x.parse().ok()) {
+            if value1 >= 0 {
+                fields.push(value1);
+                if let Some(value2) = row.get(pos2).and_then(|x| x.parse().ok()) {
+                    fields.push(value2);
+                }
+            }
+            Some(Self {
+                metadata: metadata.clone(),
+                fields,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 fn write_fields<W>(w: &mut W, header: &str, records: &[Record]) -> Result<(), Box<dyn Error>>
@@ -59,18 +91,19 @@ where
     writeln!(w, "{header}")?;
     writeln!(w, "const FIELDS: &[Field] = &[")?;
     for record in records.iter() {
-        let default_scale = match record.field_type {
+        let metadata = &record.metadata;
+        let default_scale = match metadata.field_type {
             Charge | Power | StateOfCharge | Unitless => Some(1.0),
             Energy | Temperature => Some(0.1),
             Frequency => Some(0.01),
             Current | Voltage => None,
             Time => Some(60.0),
         };
-        let bias = match record.field_type {
+        let bias = match metadata.field_type {
             Temperature => -100.0,
             _ => 0.0,
         };
-        let unit = match record.field_type {
+        let unit = match metadata.field_type {
             Charge => "Ah",
             Current => "A",
             Energy => "kWh",
@@ -82,7 +115,7 @@ where
             Voltage => "V",
             Unitless => "",
         };
-        let scale = record.scale.or(default_scale).unwrap();
+        let scale = metadata.scale.or(default_scale).unwrap();
         writeln!(
             w,
             r#"    Field {{
@@ -94,7 +127,7 @@ where
         bias: {bias:?},
         unit: {unit:?},
     }},"#,
-            record.field_type, record.group, record.name, record.id
+            metadata.field_type, metadata.group, metadata.name, metadata.id
         )?;
     }
     writeln!(w, "];")?;
@@ -105,7 +138,7 @@ where
         writeln!(
             w,
             "    pub const {}: usize = {};",
-            record.id.to_uppercase(),
+            record.metadata.id.to_uppercase(),
             i
         )?;
     }
@@ -120,31 +153,33 @@ fn main() -> Result<(), Box<dyn Error>> {
     let pcap_path = out_path.join("pcap_fields.rs");
     let modbus_path = out_path.join("modbus_fields.rs");
     let mut reader = csv::Reader::from_reader(fs::File::open("fields.csv")?);
+    let mut header_index = HashMap::new();
+    let headers = reader.headers()?.clone();
+    for (i, header) in headers.iter().enumerate() {
+        header_index.insert(header, i);
+    }
 
-    let mut pcap_records = vec![];
-    let mut pcap_offsets = vec![];
+    let pcap_sizes = &[292, 302];
+    let mut pcap_records = HashMap::new();
+    for size in pcap_sizes {
+        pcap_records.insert(size, vec![]);
+    }
     let mut modbus_records = vec![];
-    let mut modbus_regs = vec![];
-    for result in reader.deserialize() {
-        let record: Record = result?;
-        if let Some(offset) = record.offset {
-            pcap_records.push(record.clone());
-            let mut offsets = vec![offset];
-            if let Some(offset2) = record.offset2 {
-                offsets.push(offset2);
+    for row in reader.records() {
+        let row = row?;
+        let metadata: Metadata = row.deserialize(Some(&headers))?;
+        let metadata = Rc::new(metadata);
+        for (size, records) in pcap_records.iter_mut() {
+            let offset_name = format!("v{size}_offset");
+            let offset2_name = format!("v{size}_offset2");
+            if let Some(record) =
+                Record::new(&metadata, &offset_name, &offset2_name, &header_index, &row)
+            {
+                records.push(record);
             }
-            pcap_offsets.push(offsets);
         }
-        if let Some(reg) = record.reg {
-            modbus_records.push(record.clone());
-            let mut regs = vec![];
-            if reg >= 0 {
-                regs.push(reg);
-                if let Some(reg2) = record.reg2 {
-                    regs.push(reg2);
-                }
-            }
-            modbus_regs.push(regs);
+        if let Some(record) = Record::new(&metadata, "reg", "reg2", &header_index, &row) {
+            modbus_records.push(record);
         }
     }
 
@@ -152,12 +187,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     write_fields(
         &mut pcap_writer,
         "/// Fields found in each packet",
-        &pcap_records,
+        &pcap_records[&292],
     )?;
     writeln!(&mut pcap_writer, "/// Offsets of fields within packets")?;
     writeln!(&mut pcap_writer, "const OFFSETS: &[&[usize]] = &[")?;
-    for offsets in pcap_offsets.into_iter() {
-        writeln!(&mut pcap_writer, "    &{:?},", offsets.as_slice())?;
+    for record in pcap_records[&292].iter() {
+        writeln!(&mut pcap_writer, "    &{:?},", record.fields.as_slice())?;
     }
     writeln!(&mut pcap_writer, "];")?;
     drop(pcap_writer);
@@ -170,8 +205,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     writeln!(&mut modbus_writer, "/// Registers corresponding to fields")?;
     writeln!(&mut modbus_writer, "const REGISTERS: &[&[u16]] = &[")?;
-    for regs in modbus_regs.into_iter() {
-        writeln!(&mut modbus_writer, "    &{:?},", regs.as_slice())?;
+    for record in modbus_records.into_iter() {
+        writeln!(&mut modbus_writer, "    &{:?},", record.fields.as_slice())?;
     }
     writeln!(&mut modbus_writer, "];")?;
     drop(modbus_writer);
