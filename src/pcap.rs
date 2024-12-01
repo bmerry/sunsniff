@@ -91,12 +91,16 @@ impl Codec {
                 );
                 let mut values = Vec::with_capacity(FIELDS.len());
                 for (&offsets, field) in field_table.offsets.iter().zip(field_table.fields.iter()) {
-                    let parts = offsets.iter().cloned().map(|offset| {
-                        let bytes = &sliced.payload[offset..offset + 2];
-                        let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
-                        u16::from_be_bytes(*bytes)
-                    });
-                    let value = field.from_u16s(parts);
+                    let value = if !offsets.is_empty() {
+                        let parts = offsets.iter().cloned().map(|offset| {
+                            let bytes = &sliced.payload[offset..offset + 2];
+                            let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
+                            u16::from_be_bytes(*bytes)
+                        });
+                        field.from_u16s(parts)
+                    } else {
+                        field.from_sum(&values)
+                    };
                     values.push(value);
                 }
                 /* unwrapping timestamp_nanos_opt is safe because the encoding

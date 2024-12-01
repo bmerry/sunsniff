@@ -41,6 +41,8 @@ pub struct Field<'a> {
     /// Amount to add to the value, after scaling
     pub bias: f64,
     pub unit: &'a str,
+    /// Indices of other fields to sum to get this field
+    pub sum_of: &'a [usize],
 }
 
 impl<'a> Field<'a> {
@@ -63,6 +65,10 @@ impl<'a> Field<'a> {
             raw = h * 60 + m;
         }
         (raw as f64) * self.scale + self.bias
+    }
+
+    pub fn from_sum(&self, values: &[f64]) -> f64 {
+        self.sum_of.iter().map(|idx| values[*idx]).sum()
     }
 }
 

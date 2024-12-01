@@ -15,7 +15,7 @@
  */
 
 use csv::StringRecord;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -41,6 +41,17 @@ enum FieldType {
 
 use FieldType::*;
 
+fn split_str<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: &str = Deserialize::deserialize(deserializer)?;
+    Ok(s.split(' ')
+        .map(|x| x.to_owned())
+        .filter(|x| !x.is_empty())
+        .collect())
+}
+
 #[derive(Deserialize, Clone)]
 struct Field {
     field_type: FieldType,
@@ -48,6 +59,8 @@ struct Field {
     name: String,
     id: String,
     scale: Option<f64>,
+    #[serde(deserialize_with = "split_str")]
+    sum_of: Vec<String>,
 }
 
 struct Record {
@@ -88,7 +101,8 @@ where
     W: Write,
 {
     writeln!(w, "&[")?;
-    for record in records.iter() {
+    let mut by_id: HashMap<&str, usize> = HashMap::new();
+    for (i, record) in records.iter().enumerate() {
         let field = &record.field;
         let default_scale = match field.field_type {
             Charge | Power | StateOfCharge | Unitless => Some(1.0),
@@ -114,6 +128,15 @@ where
             Unitless => "",
         };
         let scale = field.scale.or(default_scale).unwrap();
+        let sum_of: Vec<usize> = field
+            .sum_of
+            .iter()
+            .map(|id| {
+                *by_id
+                    .get(id.as_str())
+                    .unwrap_or_else(|| panic!("Prior field {id:?} not found"))
+            })
+            .collect();
         writeln!(
             w,
             r#"    crate::fields::Field {{
@@ -124,9 +147,15 @@ where
         scale: {scale:?},
         bias: {bias:?},
         unit: {unit:?},
+        sum_of: &{:?},
     }},"#,
-            field.field_type, field.group, field.name, field.id
+            field.field_type,
+            field.group,
+            field.name,
+            field.id,
+            sum_of.as_slice()
         )?;
+        by_id.insert(field.id.as_str(), i);
     }
     write!(w, "]")?;
     Ok(())

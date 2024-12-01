@@ -57,16 +57,15 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
     let mut values = Vec::with_capacity(FIELDS.len());
     let mut parts = [0u16; 2];
     for (field, regs) in FIELDS.iter().zip(REGISTERS.iter()) {
-        let value;
-        if !regs.is_empty() {
+        let value = if !regs.is_empty() {
             for (i, reg) in regs.iter().enumerate() {
                 // TODO: better error handling
                 parts[i] = ctx.read_holding_registers(*reg, 1).await?[0];
             }
-            value = field.from_u16s(parts[..regs.len()].iter().cloned());
+            field.from_u16s(parts[..regs.len()].iter().cloned())
         } else {
-            value = 0.0;
-        }
+            field.from_sum(&values)
+        };
         values.push(value);
     }
     // Get the inverter time, since that'll determine which program is current
@@ -86,9 +85,6 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
     }
     values[field_idx::INVERTER_PROGRAM_POWER] = values[field_idx::INVERTER_PROGRAM_POWER_1 + prog];
     values[field_idx::INVERTER_PROGRAM_SOC] = values[field_idx::INVERTER_PROGRAM_SOC_1 + prog];
-
-    // Other computed fields
-    values[field_idx::PV_POWER] = values[field_idx::PV_POWER_1] + values[field_idx::PV_POWER_2];
 
     Ok(values)
 }
