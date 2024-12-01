@@ -4,19 +4,19 @@ This program collects data from a Sunsynk/Deye router and makes it available
 for use. It can collect the data in two ways (referred to as "frontends"):
 
 1. By running on a router sitting between an inverter with an
-Inteless WiFi dongle and the remote server. In this mode it is a completely
-passive observer, so it cannot interface with the inverter's operation. This is
-called the `pcap` frontend.
+   Inteless WiFi dongle and the remote server. In this mode it is a completely
+   passive observer, so it cannot interface with the inverter's operation. This is
+   called the `pcap` frontend.
 
 2. By connecting a serial cable to the inverter, it is possible to query it
-interactively. This requires additional hardware, but allows the query
-interval be set (and made much faster than the 5 minute interval the dongle
-uses), and the dongle can be removed for better privacy and security. In this
-mode commands are sent to your inverter, but they only read (not write) the
-registers, so it is still pretty safe. This is the `modbus` frontend. See
-[this guide](https://kellerza.github.io/sunsynk/guide/deployment-options) for
-information on how to wire the RS485 cable. There are reports that the RS232
-connection works too.
+   interactively. This requires additional hardware, but allows the query
+   interval be set (and made much faster than the 5 minute interval the dongle
+   uses), and the dongle can be removed for better privacy and security. In this
+   mode commands are sent to your inverter, but they only read (not write) the
+   registers, so it is still pretty safe. This is the `modbus` frontend. See
+   [this guide](https://kellerza.github.io/sunsynk/guide/deployment-options) for
+   information on how to wire the RS485 cable. There are reports that the RS232
+   connection works too.
 
 There are also currently two "backends", which determine what to do with the
 data.

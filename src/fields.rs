@@ -45,7 +45,7 @@ pub struct Field<'a> {
     pub sum_of: &'a [usize],
 }
 
-impl<'a> Field<'a> {
+impl Field<'_> {
     pub fn from_u16s(&self, parts: impl IntoIterator<Item = u16>) -> f64 {
         let mut raw: i64 = 0;
         let mut shift: u32 = 0;
