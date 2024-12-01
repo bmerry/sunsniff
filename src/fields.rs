@@ -86,6 +86,7 @@ mod test {
             scale: 0.1,
             bias: -10.0, // Not realistic, but useful to test the feature
             unit: "kWh",
+            sum_of: &[1, 2],
         }
     }
 
@@ -102,5 +103,12 @@ mod test {
         assert_approx_eq!(f.from_u16s([12345, 4321]), 28319330.1);
         assert_approx_eq!(f.from_u16s([55536, 4321]), 28323649.2);
         assert_approx_eq!(f.from_u16s([55536, 55536]), -65530456.4);
+    }
+
+    #[test]
+    fn test_from_sum() {
+        let f = field();
+        let values = [2.0, 3.0, 4.0];
+        assert_eq!(f.from_sum(&values), 7.0);
     }
 }
