@@ -1975,6 +1975,8 @@ dependencies = [
  "modbus-robust",
  "mqtt-async-client",
  "pcap",
+ "phf",
+ "phf_codegen",
  "serde",
  "serde_json",
  "serde_with",

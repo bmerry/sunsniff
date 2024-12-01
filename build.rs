@@ -42,7 +42,7 @@ enum FieldType {
 use FieldType::*;
 
 #[derive(Deserialize, Clone)]
-struct Metadata {
+struct Field {
     field_type: FieldType,
     group: String,
     name: String,
@@ -51,31 +51,31 @@ struct Metadata {
 }
 
 struct Record {
-    metadata: Rc<Metadata>,
-    fields: Vec<i32>,
+    field: Rc<Field>,
+    positions: Vec<i32>,
 }
 
 impl Record {
     fn new(
-        metadata: &Rc<Metadata>,
+        field: &Rc<Field>,
         name1: &str,
         name2: &str,
         header_index: &HashMap<&str, usize>,
         row: &StringRecord,
     ) -> Option<Self> {
-        let pos1 = header_index[name1];
-        let pos2 = header_index[name2];
-        let mut fields: Vec<i32> = vec![];
-        if let Some(value1) = row.get(pos1).and_then(|x| x.parse().ok()) {
+        let col1 = header_index[name1];
+        let col2 = header_index[name2];
+        let mut positions: Vec<i32> = vec![];
+        if let Some(value1) = row.get(col1).and_then(|x| x.parse().ok()) {
             if value1 >= 0 {
-                fields.push(value1);
-                if let Some(value2) = row.get(pos2).and_then(|x| x.parse().ok()) {
-                    fields.push(value2);
+                positions.push(value1);
+                if let Some(value2) = row.get(col2).and_then(|x| x.parse().ok()) {
+                    positions.push(value2);
                 }
             }
             Some(Self {
-                metadata: metadata.clone(),
-                fields,
+                field: field.clone(),
+                positions,
             })
         } else {
             None
@@ -83,27 +83,25 @@ impl Record {
     }
 }
 
-fn write_fields<W>(w: &mut W, header: &str, records: &[Record]) -> Result<(), Box<dyn Error>>
+fn write_fields_data<W>(w: &mut W, records: &[Record]) -> Result<(), Box<dyn Error>>
 where
     W: Write,
 {
-    writeln!(w, "use crate::fields::{{Field, FieldType}};")?;
-    writeln!(w, "{header}")?;
-    writeln!(w, "const FIELDS: &[Field] = &[")?;
+    writeln!(w, "&[")?;
     for record in records.iter() {
-        let metadata = &record.metadata;
-        let default_scale = match metadata.field_type {
+        let field = &record.field;
+        let default_scale = match field.field_type {
             Charge | Power | StateOfCharge | Unitless => Some(1.0),
             Energy | Temperature => Some(0.1),
             Frequency => Some(0.01),
             Current | Voltage => None,
             Time => Some(60.0),
         };
-        let bias = match metadata.field_type {
+        let bias = match field.field_type {
             Temperature => -100.0,
             _ => 0.0,
         };
-        let unit = match metadata.field_type {
+        let unit = match field.field_type {
             Charge => "Ah",
             Current => "A",
             Energy => "kWh",
@@ -115,11 +113,11 @@ where
             Voltage => "V",
             Unitless => "",
         };
-        let scale = metadata.scale.or(default_scale).unwrap();
+        let scale = field.scale.or(default_scale).unwrap();
         writeln!(
             w,
-            r#"    Field {{
-        field_type: FieldType::{:?},
+            r#"    crate::fields::Field {{
+        field_type: crate::fields::FieldType::{:?},
         group: {:?},
         name: {:?},
         id: {:?},
@@ -127,10 +125,21 @@ where
         bias: {bias:?},
         unit: {unit:?},
     }},"#,
-            metadata.field_type, metadata.group, metadata.name, metadata.id
+            field.field_type, field.group, field.name, field.id
         )?;
     }
-    writeln!(w, "];")?;
+    write!(w, "]")?;
+    Ok(())
+}
+
+fn write_fields<W>(w: &mut W, header: &str, records: &[Record]) -> Result<(), Box<dyn Error>>
+where
+    W: Write,
+{
+    writeln!(w, "{header}")?;
+    write!(w, "const FIELDS: &[crate::fields::Field] = ")?;
+    write_fields_data(w, records)?;
+    writeln!(w, ";")?;
 
     writeln!(w, "#[allow(dead_code)]")?;
     writeln!(w, "mod field_idx {{")?;
@@ -138,7 +147,7 @@ where
         writeln!(
             w,
             "    pub const {}: usize = {};",
-            record.metadata.id.to_uppercase(),
+            record.field.id.to_uppercase(),
             i
         )?;
     }
@@ -167,49 +176,78 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut modbus_records = vec![];
     for row in reader.records() {
         let row = row?;
-        let metadata: Metadata = row.deserialize(Some(&headers))?;
-        let metadata = Rc::new(metadata);
+        let field: Field = row.deserialize(Some(&headers))?;
+        let field = Rc::new(field);
         for (size, records) in pcap_records.iter_mut() {
             let offset_name = format!("v{size}_offset");
             let offset2_name = format!("v{size}_offset2");
             if let Some(record) =
-                Record::new(&metadata, &offset_name, &offset2_name, &header_index, &row)
+                Record::new(&field, &offset_name, &offset2_name, &header_index, &row)
             {
                 records.push(record);
             }
         }
-        if let Some(record) = Record::new(&metadata, "reg", "reg2", &header_index, &row) {
+        if let Some(record) = Record::new(&field, "reg", "reg2", &header_index, &row) {
             modbus_records.push(record);
         }
     }
 
-    let mut pcap_writer = fs::File::create(pcap_path)?;
-    write_fields(
-        &mut pcap_writer,
-        "/// Fields found in each packet",
-        &pcap_records[&292],
-    )?;
-    writeln!(&mut pcap_writer, "/// Offsets of fields within packets")?;
-    writeln!(&mut pcap_writer, "const OFFSETS: &[&[usize]] = &[")?;
-    for record in pcap_records[&292].iter() {
-        writeln!(&mut pcap_writer, "    &{:?},", record.fields.as_slice())?;
+    {
+        let mut pcap_writer = fs::File::create(pcap_path)?;
+        let mut builder = phf_codegen::Map::new();
+        for (size, records) in pcap_records.iter() {
+            let mut buf = Vec::new();
+            writeln!(&mut buf, "    FieldOffsets {{")?;
+            write!(&mut buf, "        fields: ")?;
+            write_fields_data(&mut buf, records)?;
+            writeln!(&mut buf, ",")?;
+            write!(&mut buf, "        offsets: &[")?;
+            for record in records.iter() {
+                writeln!(&mut buf, "            &{:?},", record.positions.as_slice())?;
+            }
+            writeln!(&mut buf, "        ],")?;
+            writeln!(&mut buf, "    }}")?;
+            builder.entry(size, &String::from_utf8(buf)?);
+        }
+        writeln!(&mut pcap_writer, "struct FieldOffsets {{")?;
+        writeln!(
+            &mut pcap_writer,
+            "    fields: &'static [crate::fields::Field<'static>],"
+        )?;
+        writeln!(
+            &mut pcap_writer,
+            "    offsets: &'static [&'static [usize]],"
+        )?;
+        writeln!(&mut pcap_writer, "}}")?;
+        writeln!(
+            &mut pcap_writer,
+            "/// Field definitions for different packet sizes"
+        )?;
+        writeln!(
+            &mut pcap_writer,
+            "static FIELDS: phf::Map<usize, FieldOffsets> = {};",
+            builder.build()
+        )?;
     }
-    writeln!(&mut pcap_writer, "];")?;
-    drop(pcap_writer);
 
-    let mut modbus_writer = fs::File::create(modbus_path)?;
-    write_fields(
-        &mut modbus_writer,
-        "/// Fields retrieved by modbus protocol",
-        &modbus_records,
-    )?;
-    writeln!(&mut modbus_writer, "/// Registers corresponding to fields")?;
-    writeln!(&mut modbus_writer, "const REGISTERS: &[&[u16]] = &[")?;
-    for record in modbus_records.into_iter() {
-        writeln!(&mut modbus_writer, "    &{:?},", record.fields.as_slice())?;
+    {
+        let mut modbus_writer = fs::File::create(modbus_path)?;
+        write_fields(
+            &mut modbus_writer,
+            "/// Fields retrieved by modbus protocol",
+            &modbus_records,
+        )?;
+        writeln!(&mut modbus_writer, "/// Registers corresponding to fields")?;
+        writeln!(&mut modbus_writer, "const REGISTERS: &[&[u16]] = &[")?;
+        for record in modbus_records.into_iter() {
+            writeln!(
+                &mut modbus_writer,
+                "    &{:?},",
+                record.positions.as_slice()
+            )?;
+        }
+        writeln!(&mut modbus_writer, "];")?;
     }
-    writeln!(&mut modbus_writer, "];")?;
-    drop(modbus_writer);
 
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=fields.csv");

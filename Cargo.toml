@@ -1,4 +1,4 @@
-# Copyright 2022-2023 Bruce Merry
+# Copyright 2022-2024 Bruce Merry
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -48,6 +48,7 @@ pcap = ["dep:chrono-tz", "dep:etherparse", "dep:pcap"]
 
 [build-dependencies]
 csv = "1.2.1"
+phf_codegen = "0.11.2"
 serde = { version = "1.0.159", features = ["derive"] }
 
 [dependencies]
@@ -64,6 +65,7 @@ log = "0.4.17"
 modbus-robust = { version = "0.1.0", optional = true }
 mqtt-async-client = { version = "0.3.1", optional = true }
 pcap = { version = "1.0.0", features = ["capture-stream"], optional = true }
+phf = { version = "0.11.2", default-features = false }
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = { version = "1.0.95", optional = true }
 serde_with = { version = "3.2.0", optional = true }

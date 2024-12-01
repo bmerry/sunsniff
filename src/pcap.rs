@@ -1,4 +1,4 @@
-/* Copyright 2022-2023 Bruce Merry
+/* Copyright 2022-2024 Bruce Merry
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -26,8 +26,6 @@ use std::sync::Arc;
 
 use crate::receiver::{Update, UpdateStream};
 
-/// Expected length of the packet (TCP payload)
-const MAGIC_LENGTH: usize = 292;
 /// Expected first byte of the packet
 const MAGIC_HEADER: u8 = 0xa5;
 /// Offsets containing the inverter serial number
@@ -80,13 +78,11 @@ fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
 impl Codec {
     fn decode_data(&self, packet_data: &[u8]) -> Option<Arc<Update<'static>>> {
         if let Ok(sliced) = SlicedPacket::from_ethernet(packet_data) {
-            if sliced.payload.len() == MAGIC_LENGTH && sliced.payload[0] == MAGIC_HEADER {
-                let dt = match parse_timestamp(sliced.payload, self.tz) {
-                    Some(x) => x,
-                    None => {
-                        return None; // Parse error means it's probably not the packet we expected
-                    }
-                };
+            if let Some(field_table) = FIELDS.get(&sliced.payload.len()) {
+                if sliced.payload[0] != MAGIC_HEADER {
+                    return None;
+                }
+                let dt = parse_timestamp(sliced.payload, self.tz)?;
                 let serial =
                     std::str::from_utf8(&sliced.payload[SERIAL_RANGE]).unwrap_or("unknown");
                 info!(
@@ -94,7 +90,7 @@ impl Codec {
                     dt, serial
                 );
                 let mut values = Vec::with_capacity(FIELDS.len());
-                for (&offsets, field) in OFFSETS.iter().zip(FIELDS.iter()) {
+                for (&offsets, field) in field_table.offsets.iter().zip(field_table.fields.iter()) {
                     let parts = offsets.iter().cloned().map(|offset| {
                         let bytes = &sliced.payload[offset..offset + 2];
                         let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
@@ -105,10 +101,15 @@ impl Codec {
                 }
                 /* unwrapping timestamp_nanos_opt is safe because the encoding
                  * only supports up to 2127 (or 2255 if the year is interpreted
-                 * as unsigned), which DateTime supports up to 2262 for
+                 * as unsigned), while DateTime supports up to 2262 for
                  * nanosecond timestamps.
                  */
-                let update = Update::new(dt.timestamp_nanos_opt().unwrap(), serial, FIELDS, values);
+                let update = Update::new(
+                    dt.timestamp_nanos_opt().unwrap(),
+                    serial,
+                    field_table.fields,
+                    values,
+                );
                 return Some(Arc::new(update));
             }
         }
