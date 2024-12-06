@@ -17,6 +17,7 @@
 use chrono::{DateTime, LocalResult, NaiveDate};
 use chrono_tz::Tz;
 use etherparse::SlicedPacket;
+use etherparse::TransportSlice::Tcp;
 use futures::prelude::*;
 use log::{error, info};
 use pcap::{Capture, Device, Packet, PacketCodec};
@@ -77,14 +78,14 @@ fn parse_timestamp(payload: &[u8], tz: Tz) -> Option<DateTime<Tz>> {
 
 impl Codec {
     fn decode_data(&self, packet_data: &[u8]) -> Option<Arc<Update<'static>>> {
-        if let Ok(sliced) = SlicedPacket::from_ethernet(packet_data) {
-            if let Some(field_table) = FIELDS.get(&sliced.payload.len()) {
-                if sliced.payload[0] != MAGIC_HEADER {
+        if let Tcp(transport) = SlicedPacket::from_ethernet(packet_data).ok()?.transport? {
+            let payload = transport.payload();
+            if let Some(field_table) = FIELDS.get(&payload.len()) {
+                if payload[0] != MAGIC_HEADER {
                     return None;
                 }
-                let dt = parse_timestamp(sliced.payload, self.tz)?;
-                let serial =
-                    std::str::from_utf8(&sliced.payload[SERIAL_RANGE]).unwrap_or("unknown");
+                let dt = parse_timestamp(payload, self.tz)?;
+                let serial = std::str::from_utf8(&payload[SERIAL_RANGE]).unwrap_or("unknown");
                 info!(
                     "Received packet with timestamp {:?} for inverter {}",
                     dt, serial
@@ -93,7 +94,7 @@ impl Codec {
                 for (&offsets, field) in field_table.offsets.iter().zip(field_table.fields.iter()) {
                     let value = if !offsets.is_empty() {
                         let parts = offsets.iter().cloned().map(|offset| {
-                            let bytes = &sliced.payload[offset..offset + 2];
+                            let bytes = &payload[offset..offset + 2];
                             let bytes = <&[u8; 2]>::try_from(bytes).unwrap();
                             u16::from_be_bytes(*bytes)
                         });

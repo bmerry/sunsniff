@@ -55,16 +55,16 @@ serde = { version = "1.0.159", features = ["derive"] }
 async-std = "1.12.0"
 async-trait = "0.1.57"
 chrono = { version = "0.4.22", default-features = false, features = ["std"] }
-chrono-tz = { version = "0.8.2", features = ["serde"], optional = true }
+chrono-tz = { version = "0.10.0", features = ["serde"], optional = true }
 clap = { version = "4.0.10", features = ["derive"] }
-env_logger = "0.10.0"
-etherparse = { version = "0.13.0", optional = true }
+env_logger = "0.11.5"
+etherparse = { version = "0.16.0", optional = true }
 futures = "0.3.28"
-influxdb2 = { version = "0.4.0", default-features = false, features = ["rustls"], optional = true }
+influxdb2 = { version = "0.5.2", default-features = false, features = ["rustls"], optional = true }
 log = "0.4.17"
 modbus-robust = { version = "0.1.0", optional = true }
 mqtt-async-client = { version = "0.3.1", optional = true }
-pcap = { version = "1.0.0", features = ["capture-stream"], optional = true }
+pcap = { version = "2.2.0", features = ["capture-stream"], optional = true }
 phf = { version = "0.11.2", default-features = false }
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = { version = "1.0.95", optional = true }
@@ -72,7 +72,7 @@ serde_with = { version = "3.2.0", optional = true }
 tokio = { version = "1.21.2", features = ["macros", "rt"] }
 tokio-modbus = { version = "0.9.0", default-features = false, features = ["rtu", "tcp"], optional = true }
 tokio-serial = { version = "5.4.4", optional = true }
-toml = "0.7.3"
+toml = "0.8.19"
 
 [dev-dependencies]
 assert_approx_eq = "1.1.0"
