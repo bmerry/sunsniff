@@ -1391,9 +1391,9 @@ dependencies = [
 
 [[package]]
 name = "modbus-robust"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4efb5df2e29d48ae9dcc51ef9255aae09f2f3f2a20a3d67ca8c11912ef2f2d5f"
+checksum = "cb003d13b507a1c281916df2522f9e9d91c2fea6f4026d1f5b3b7767a2f48b6c"
 dependencies = [
  "async-trait",
  "tokio",
@@ -2158,7 +2158,16 @@ version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.69",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
+dependencies = [
+ "thiserror-impl 2.0.4",
 ]
 
 [[package]]
@@ -2166,6 +2175,17 @@ name = "thiserror-impl"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8381894bb3efe0c4acac3ded651301ceee58a15d47c2e34885ed1908ad667061"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2242,20 +2262,19 @@ dependencies = [
 
 [[package]]
 name = "tokio-modbus"
-version = "0.9.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0f38205d1e83e64947e0b07731cc05667952f5fb0986279573022305edfbf4e"
+checksum = "e493b54318dffe0c341d705839c58cdad1fca4b77d1e0a5d8ab1c22ac175bf37"
 dependencies = [
  "async-trait",
  "byteorder",
  "bytes 1.9.0",
- "futures",
+ "futures-core",
  "futures-util",
  "log",
  "smallvec",
- "socket2",
+ "thiserror 2.0.4",
  "tokio",
- "tokio-serial",
  "tokio-util",
 ]
 
@@ -2377,7 +2396,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c878a167baa8afd137494101a688ef8c67125089ff2249284bd2b5f9bfedb815"
 dependencies = [
- "thiserror",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

@@ -53,14 +53,16 @@ fn default_modbus_id() -> u8 {
     1
 }
 
-async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
+async fn read_values(
+    ctx: &mut Context,
+) -> Result<Vec<f64>, Box<dyn std::error::Error + Send + Sync>> {
     let mut values = Vec::with_capacity(FIELDS.len());
     let mut parts = [0u16; 2];
     for (field, regs) in FIELDS.iter().zip(REGISTERS.iter()) {
         let value = if !regs.is_empty() {
             for (i, reg) in regs.iter().enumerate() {
                 // TODO: better error handling
-                parts[i] = ctx.read_holding_registers(*reg, 1).await?[0];
+                parts[i] = ctx.read_holding_registers(*reg, 1).await??[0];
             }
             field.from_u16s(parts[..regs.len()].iter().cloned())
         } else {
@@ -69,7 +71,7 @@ async fn read_values(ctx: &mut Context) -> Result<Vec<f64>, std::io::Error> {
         values.push(value);
     }
     // Get the inverter time, since that'll determine which program is current
-    let time_regs = ctx.read_holding_registers(REG_CLOCK, 3).await?;
+    let time_regs = ctx.read_holding_registers(REG_CLOCK, 3).await??;
     let hour = time_regs[1] & 0xff;
     let minute = time_regs[2] >> 8;
     let second = time_regs[2] & 0xff;
@@ -100,7 +102,7 @@ pub async fn create_stream(
         Ok(socket_addr) => modbus_robust::new_tcp_slave(socket_addr, slave),
         Err(_) => modbus_robust::new_rtu_slave(&config.device, config.baud, slave),
     };
-    let serial_words = ctx.read_holding_registers(3, 5).await?;
+    let serial_words = ctx.read_holding_registers(3, 5).await??;
     let mut serial_bytes = [0u8; 10];
     for i in 0..5 {
         let bytes = serial_words[i].to_be_bytes();
