@@ -177,14 +177,23 @@ TODO:
 
 ## Changelog
 
+### 0.4.0
+
+- Fix handling of systems with two PV strings. Previously the PV Power metric
+  reported only the power for the first string. There are now PV Power 1 and PV
+  Power 2 metrics, and PV Power reports their sum.
+- Support newer dongle firmware in the pcap backend, which uses a different
+  packet size and layout.
+- Update dependencies
+
 ### 0.3.2
 
-- Updates of dependencies
+- Update dependencies
 - Use modbus-robust so that restarting mbusd will be handled robustly
 
 ### 0.3.1
 
-- Updates of dependencies
+- Update dependencies
 - Fix cross builds for aarch64-linux-gnu
 
 ### 0.3
