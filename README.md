@@ -177,6 +177,14 @@ TODO:
 
 ## Changelog
 
+### 0.4.1
+
+Add additional sensors
+
+- Power, voltage, current for a 3rd PV string
+- Grid CT power (which is different from Grid power when Limit to Load
+  is set)
+
 ### 0.4.0
 
 - Fix handling of systems with two PV strings. Previously the PV Power metric
