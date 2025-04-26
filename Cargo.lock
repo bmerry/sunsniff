@@ -630,9 +630,9 @@ dependencies = [
 
 [[package]]
 name = "etherparse"
-version = "0.16.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8d8a704b617484e9d867a0423cd45f7577f008c4068e2e33378f8d3860a6d73"
+checksum = "3ff83a5facf1a7cbfef93cfb48d6d4fb6a1f42d8ac2341a96b3255acb4d4f860"
 dependencies = [
  "arrayvec",
 ]
