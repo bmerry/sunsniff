@@ -126,10 +126,7 @@ impl MqttReceiver {
         })
     }
 
-    async fn register_field<'a>(
-        &mut self,
-        field: &DeviceField<'a>,
-    ) -> mqtt_async_client::Result<()> {
+    async fn register_field(&mut self, field: &DeviceField<'_>) -> mqtt_async_client::Result<()> {
         if !self.registered.contains(&field.unique_id) {
             let full_name = format!("{} {}", field.field.group, field.field.name);
             let class_info: ClassInfo = field.field.field_type.into();
