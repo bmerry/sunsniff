@@ -1,4 +1,4 @@
-# Copyright 2022-2024 Bruce Merry
+# Copyright 2022-2025 Bruce Merry
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -15,7 +15,7 @@
 
 [package]
 name = "sunsniff"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2024"
 authors = ["Bruce Merry"]
 license = "GPL-3.0-or-later"

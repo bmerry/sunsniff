@@ -177,6 +177,11 @@ TODO:
 
 ## Changelog
 
+### 0.4.2
+
+- Update dependencies
+- Update to Rust 2024 edition
+
 ### 0.4.1
 
 Add additional sensors
