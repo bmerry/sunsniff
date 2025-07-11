@@ -86,10 +86,7 @@ impl Codec {
                 }
                 let dt = parse_timestamp(payload, self.tz)?;
                 let serial = std::str::from_utf8(&payload[SERIAL_RANGE]).unwrap_or("unknown");
-                info!(
-                    "Received packet with timestamp {:?} for inverter {}",
-                    dt, serial
-                );
+                info!("Received packet with timestamp {dt:?} for inverter {serial}");
                 let mut values = Vec::with_capacity(FIELDS.len());
                 for (&offsets, field) in field_table.offsets.iter().zip(field_table.fields.iter()) {
                     let value = if !offsets.is_empty() {
@@ -146,7 +143,7 @@ async fn filter_fn(
 pub fn create_stream(config: &PcapConfig) -> Result<UpdateStream, Box<dyn std::error::Error>> {
     let base_filter = "tcp";
     let filter = match &config.filter {
-        Some(expr) => format!("({}) and ({})", base_filter, expr),
+        Some(expr) => format!("({base_filter}) and ({expr})"),
         None => String::from(base_filter),
     };
 

@@ -42,7 +42,7 @@ impl Influxdb2Receiver {
                 if health_check.status == Status::Fail {
                     match health_check.message {
                         Some(ref message) => {
-                            warn!("Influxdb server is unhealthy: {}", message);
+                            warn!("Influxdb server is unhealthy: {message}");
                         }
                         None => {
                             warn!("Influxdb server is unhealthy");
@@ -56,7 +56,7 @@ impl Influxdb2Receiver {
                 }
             }
             Err(err) => {
-                warn!("Could not connect to Influxdb server: {}", err);
+                warn!("Could not connect to Influxdb server: {err}");
             }
         }
         Self {
@@ -88,7 +88,7 @@ impl Receiver for Influxdb2Receiver {
                         points.push(value);
                     }
                     Err(err) => {
-                        warn!("Error building point: {:?}", err);
+                        warn!("Error building point: {err:?}");
                     }
                 }
             }
@@ -103,7 +103,7 @@ impl Receiver for Influxdb2Receiver {
                             break;
                         }
                         Err(err) => {
-                            info!("Error writing to Influxdb; trying again in 5s ({:?})", err);
+                            info!("Error writing to Influxdb; trying again in 5s ({err:?})");
                             task::sleep(Duration::from_secs(5)).await;
                         }
                     }

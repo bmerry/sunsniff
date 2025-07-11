@@ -162,7 +162,7 @@ impl Receiver for MqttReceiver {
         self.client
             .connect()
             .await
-            .unwrap_or_else(|e| warn!("Couldn't connect to MQTT broker (will keep trying): {}", e));
+            .unwrap_or_else(|e| warn!("Couldn't connect to MQTT broker (will keep trying): {e}"));
         while let Some(update) = receiver.next().await {
             for (field, value) in zip(update.fields.iter(), update.values.iter()) {
                 let device_field = DeviceField::new(field, &update.serial);
