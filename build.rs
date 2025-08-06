@@ -197,7 +197,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         header_index.insert(header, i);
     }
 
-    let pcap_sizes = &[292, 302];
+    let pcap_sizes: &[usize] = &[292, 302];
     let mut pcap_records = HashMap::new();
     for size in pcap_sizes {
         pcap_records.insert(size, vec![]);
@@ -236,7 +236,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             writeln!(&mut buf, "        ],")?;
             writeln!(&mut buf, "    }}")?;
-            builder.entry(size, &String::from_utf8(buf)?);
+            builder.entry(size, String::from_utf8(buf)?);
         }
         writeln!(&mut pcap_writer, "struct FieldOffsets {{")?;
         writeln!(
