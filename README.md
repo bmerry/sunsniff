@@ -124,9 +124,9 @@ token = "..."
 The implementation tries very hard to deal with intermittent connections to
 Influxdb, buffering messages until it is able to deliver them (but only in
 memory; if the service is stopped, any pending messages are lost). Since the
-updates are only sent every 5 minutes is can be quite practical to buffer
-messages for hours or days, and I'm currently running the Influxdb server on
-my home PC which is switched off at night.
+updates are only sent every 5 minutes it can be quite practical to buffer
+messages for hours or days, and in the past I've run the Influxdb server on
+a home PC which is switched off at night.
 
 The downside of this robustness is that if you get the configuration wrong,
 the server won't stop with an error. It will just keep trying to deliver, and
