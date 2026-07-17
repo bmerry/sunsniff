@@ -51,7 +51,7 @@ impl Influxdb2Receiver {
                 } else {
                     info!(
                         "Successfully connected to Influxdb server at {}",
-                        &config.host
+                        config.host
                     );
                 }
             }
